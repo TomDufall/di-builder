@@ -30,6 +30,7 @@ class Node{
 	constructor(type){
 		this.type = type;
 	}
+	repaint(){};
 }
 
 class Leaf extends Node{
@@ -126,7 +127,7 @@ function repaintAll() {
 
 </script>
 <br><br>
-<button onclick="updateCanvas()">repaintAll()</button>
+<button onclick="repaintAll()">Repaint</button>
 
 
   </body>
