@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+   <meta name="description" content="Test site : ">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Test site</title>
+	
+	<style>
+canvas {
+    border: 1px solid #d3d3d3;
+    background-color: #f1f1f1;
+}
+</style>
+	
+  </head>
+
+  <body onload = "startScript()">
+	
+	
+<script>
+
+var aSquare;
+
+function startScript(){
+	aSquare = new mySquare(30, 30, "red", 10, 120);
+	myCanvas.start();
+}
+
+var myCanvas = {
+    canvas : document.createElement("canvas"),
+    start : function() {
+        this.canvas.width = 480;
+        this.canvas.height = 270;
+        this.context = this.canvas.getContext("2d");
+        document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+		window.addEventListener('keydown', function(e){keyMove(e.keyCode);});
+		updateCanvas();
+//		this.interval = setInterval(updateCanvas, (1000/30));
+    },
+	clear : function(){
+		this.context.clearRect(0,0, this.canvas.width, this.canvas.height);
+	}
+}
+	
+function mySquare(width, height, color, x, y){
+	this.width = width;
+	this.height = height;
+	this.x = x;
+	this.y = y;
+	this.update = function(){
+		ctx = myCanvas.context;
+		ctx.fillStyle = color;
+		ctx.fillRect(this.x, this.y, this.width, this.height);
+	}
+}
+
+function updateCanvas() {
+    myCanvas.clear();
+    aSquare.update();
+}
+
+function moveup() {
+    aSquare.y -= 1;
+	updateCanvas();
+}
+
+function movedown() {
+    aSquare.y += 1;
+	updateCanvas()
+}
+
+function moveleft() {
+    aSquare.x -= 1;
+	updateCanvas()
+}
+
+function moveright() {
+    aSquare.x += 1;
+	updateCanvas()
+}
+
+function keyMove(key){
+	switch(key){
+		case 37:
+			moveleft();
+			break;
+		case 39:
+			moveright();
+			break;
+		case 38:
+			moveup();
+			break;
+		case 40:
+			movedown();
+			break;
+		default:
+			break;
+	}
+}
+
+</script>
+<br><br>
+<button onclick="moveup()">UP</button>
+<button onclick="movedown()">DOWN</button>
+<button onclick="moveleft()">LEFT</button>
+<button onclick="moveright()">RIGHT</button>
+<button onclick="updateCanvas()">REDRAW</button>
+
+    
+
+  </body>
+</html>
