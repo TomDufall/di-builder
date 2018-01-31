@@ -29,8 +29,19 @@ var masterNode;
 class Node{
 	constructor(type){
 		this.type = type;
+		this.subs = [];
 	}
-	repaint(){};
+	addNext(node){
+		this.subs.push(node);
+	}
+	addPrev(node){
+		this.subs.unshift(node);
+	}
+	repaint(){
+		this.subs.forEach(function(item, index, array) {
+			console.log(item, index);
+		});
+	}
 }
 
 class Leaf extends Node{
@@ -61,11 +72,23 @@ class hjoin extends Node{
 	constructor(){
 		super('hjoin');
 	}
+	addLeft(node){
+		this.addPrev(node);
+	}
+	addRight(node){
+		this.addNext(node);
+	}
 }		
 
 class vjoin extends Node{
 	constructor(){
 		super('vjoin');
+	}
+	addAbove(node){
+		this.addPrev(node);
+	}
+	addBelow(node){
+		this.addNext(node);
 	}
 }
 
@@ -74,8 +97,8 @@ function startScript(){
 	masterNode = new Node('node');
 	leaf1 = new Leaf(myCanvas.context, 'first leaf');
 	leaf2 = new Leaf(myCanvas.context, 'second leaf');
-	masterNode.left = leaf1;
-	masterNode.right = leaf2;
+	masterNode.addNext(leaf1);
+	masterNode.addNext(leaf2);
 	document.body.appendChild(document.createElement('br'));
 	textPrintNodes(masterNode, 0);
 	leaf1.stage(myCanvas.context, 240, 135);
@@ -101,8 +124,11 @@ function textPrintNodes(node, depth){
 		document.body.appendChild(document.createTextNode(node.type));
 	}
 	document.body.appendChild(document.createElement('br'));
-	textPrintNodes(node.left, 1);
-	textPrintNodes(node.right, 1);
+	if(node.subs != null){
+		node.subs.forEach(function(item, index, array) {
+		textPrintNodes(item, depth + 1);
+		});
+	}
 }
 
 var myCanvas = {
