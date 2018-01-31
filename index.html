@@ -24,11 +24,52 @@ canvas {
 	
 <script>
 
+class Leaf{
+	constructor(text, parent){
+		this.text = text;
+		this.parent = parent;
+	}
+}
+class Node{
+	constructor(type, parent){
+		this.type = type;
+		this.parent = parent;
+		this.text = type;
+	}
+}
+
+class hjoin extends Node{
+	constructor(type, parent){
+		super(type, parent);
+	}
+}		
+
 var aSquare;
 
 function startScript(){
 	aSquare = new mySquare(30, 30, "red", 10, 120);
 	myCanvas.start();
+	masterNode = new Node('masterNodeText', null);
+	leaf1 = new Leaf('first leaf', masterNode);
+	leaf2 = new Leaf('second leaf', masterNode);
+	masterNode.left = leaf1;
+	masterNode.right = leaf2;
+	document.body.appendChild(document.createElement('br'));
+	textPrintNodes(masterNode, 0);
+}
+
+function textPrintNodes(node, depth){
+	if(node == undefined || node == null){
+		return;
+	}
+	while(depth > 0){
+		document.body.appendChild(document.createTextNode('\u00A0\u00A0\u00A0\u00A0'));
+		depth = depth - 1;
+	}
+	document.body.appendChild(document.createTextNode(node.text));
+	document.body.appendChild(document.createElement('br'));
+	textPrintNodes(node.left, 1);
+	textPrintNodes(node.right, 1);
 }
 
 var myCanvas = {
