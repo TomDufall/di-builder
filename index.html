@@ -64,7 +64,6 @@ class Leaf extends Node{
 		if(this.ctx == null || this.x == null || this.y == null) return;
 		this.ctx.font = "20px arial";
 		//	ctx.fillStyle="#0000FF";
-		this.ctx.textBaseline = 'middle';
 		this.ctx.fillText(this.text, this.x - this.width/2, this.y);
 	}
 }
@@ -72,6 +71,7 @@ class Leaf extends Node{
 class hjoin extends Node{
 	constructor(){
 		super('hjoin');
+		this.hspace = 5;
 	}
 	addLeft(node){
 		this.addPrev(node);
@@ -79,11 +79,31 @@ class hjoin extends Node{
 	addRight(node){
 		this.addNext(node);
 	}
+	getHeight(ctx){
+		var maxHeight = 0;
+		this.subs.forEach(function(item, index, array) {
+			if(item.height == null) return;
+			if(item.height > maxHeight) maxHeight = item.height;
+		});
+		console.log('max height is ' + maxHeight);
+		return maxHeight;
+	}
+	getWidth(ctx){
+		var totalWidth = 0;
+		this.subs.forEach(function(item, index, array) {
+			if(item.width == null) return;
+			totalWidth += item.width;
+		});
+		totalWidth += (this.subs.length - 1) * this.hspace;
+		console.log('total width is ' + totalWidth);
+		return totalWidth;
+	}
 }		
 
 class vjoin extends Node{
 	constructor(){
 		super('vjoin');
+		this.vspace = 5;
 	}
 	addAbove(node){
 		this.addPrev(node);
@@ -91,22 +111,67 @@ class vjoin extends Node{
 	addBelow(node){
 		this.addNext(node);
 	}
+	getHeight(ctx){
+		var totalHeight = 0;
+		this.subs.forEach(function(item, index, array) {
+			if(item.height == null) return;
+			totalHeight += item.height;
+		});
+		totalHeight += (this.subs.length - 1) * this.vspace;
+		console.log('total height is ' + totalHeight);
+		return totalHeight;
+	}
+	getWidth(ctx){
+		var maxWidth = 0;
+		this.subs.forEach(function(item, index, array) {
+			if(item.width == null) return;
+			if(item.width > maxWidth) maxWidth = item.width;
+		});
+		console.log('max width is ' + maxWidth);
+		return maxWidth;
+	}
+	stage(ctx, x, y){
+		this.ctx = ctx;
+		this.x = x;
+		this.y = y;
+		var top = y - this.getHeight()/2;
+		console.log('top is ' + top);
+		this.lines = [];
+		for (let item of this.subs) {
+			item.stage(ctx, x, top);
+			top += item.height;
+			top += this.vspace/2;
+			this.lines.push(top);
+			top += this.vspace/2;
+		};
+		if(this.lines.length > 0) this.lines.pop();
+		console.log('top is ' + top);
+		console.log('lines is ' + this.lines);
+	}
+	repaint(){
+		this.ctx.textBaseline = 'top';
+		this.subs.forEach(function(item, index, array) {
+			item.repaint();
+		});
+		for (let item of this.lines){
+			this.ctx.moveTo(this.x - this.getWidth(this.ctx)/2, item);
+			this.ctx.lineTo(this.x + this.getWidth(this.ctx)/2, item);
+			this.ctx.stroke();
+		}
+	}
 }
 
 function startScript(){
 	myCanvas.start();
-	masterNode = new Node('node');
-	leaf1 = new Leaf(myCanvas.context, 'first leaf');
-	leaf2 = new Leaf(myCanvas.context, 'second leaf');
+	masterNode = new vjoin();
+	leaf1 = new Leaf(myCanvas.context, '1 + 2');
+	leaf2 = new Leaf(myCanvas.context, '3 + 4');
 	masterNode.addNext(leaf1);
 	masterNode.addNext(leaf2);
 	document.body.appendChild(document.createElement('br'));
 	textPrintNodes(masterNode, 0);
-	leaf1.stage(myCanvas.context, 240, 135);
-	leaf1.repaint();
-	leaf2.stage(myCanvas.context, 240, 135 - leaf1.height/2 - leaf2.height/2);
-	console.log(leaf1.height/2 + leaf2.height/2);
-	leaf2.repaint();
+	masterNode.stage(myCanvas.context, 240, 135);
+	masterNode.repaint();
 }
 
 function textPrintNodes(node, depth){
@@ -149,7 +214,11 @@ var myCanvas = {
 
 function repaintAll() {
     myCanvas.clear();
-	if(masterNode != null) masterNode.repaint();
+	if(masterNode != null){
+		masterNode.stage(myCanvas.context, 240, 135);
+		masterNode.repaint();
+	}
+	console.log('Repaint button used');
 }
 
 </script>
