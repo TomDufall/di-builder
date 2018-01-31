@@ -24,6 +24,8 @@ canvas {
 	
 <script>
 
+var masterNode;
+
 class Node{
 	constructor(type){
 		this.type = type;
@@ -110,7 +112,6 @@ var myCanvas = {
         this.context = this.canvas.getContext("2d");
         document.body.insertBefore(this.canvas, document.body.childNodes[0]);
 //		window.addEventListener('keydown', function(e){keyMove(e.keyCode);});
-		updateCanvas();
 //		this.interval = setInterval(updateCanvas, (1000/30));
     },
 	clear : function(){
@@ -118,13 +119,14 @@ var myCanvas = {
 	}
 }
 
-function updateCanvas() {
+function repaintAll() {
     myCanvas.clear();
+	if(masterNode != null) masterNode.repaint();
 }
 
 </script>
 <br><br>
-<button onclick="updateCanvas()">Update</button>
+<button onclick="updateCanvas()">repaintAll()</button>
 
 
   </body>
