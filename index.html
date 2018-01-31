@@ -24,35 +24,62 @@ canvas {
 	
 <script>
 
-class Leaf{
-	constructor(text, parent){
-		this.text = text;
-		this.parent = parent;
+class Node{
+	constructor(type){
+		this.type = type;
 	}
 }
-class Node{
-	constructor(type, parent){
-		this.type = type;
-		this.parent = parent;
-		this.text = type;
+
+class Leaf extends Node{
+	constructor(ctx, text){
+		super('leaf');
+				ctx.font = "20px arial";
+
+		this.text = text;
+		this.width = ctx.measureText(this.text).width;
+		// based on tested height of font for now - tricky problem
+		this.height = 20;
+	}
+	stage(ctx, x, y){
+		this.ctx = ctx;
+		this.x = x;
+		this.y = y;
+	}
+	repaint(){
+		if(this.ctx == null || this.x == null || this.y == null) return;
+		this.ctx.font = "20px arial";
+		//	ctx.fillStyle="#0000FF";
+		this.ctx.textBaseline = 'middle';
+		this.ctx.fillText(this.text, this.x - this.width/2, this.y);
 	}
 }
 
 class hjoin extends Node{
-	constructor(type, parent){
-		super(type, parent);
+	constructor(){
+		super('hjoin');
 	}
 }		
 
+class vjoin extends Node{
+	constructor(){
+		super('vjoin');
+	}
+}
+
 function startScript(){
 	myCanvas.start();
-	masterNode = new Node('masterNodeText', null);
-	leaf1 = new Leaf('first leaf', masterNode);
-	leaf2 = new Leaf('second leaf', masterNode);
+	masterNode = new Node('node');
+	leaf1 = new Leaf(myCanvas.context, 'first leaf');
+	leaf2 = new Leaf(myCanvas.context, 'second leaf');
 	masterNode.left = leaf1;
 	masterNode.right = leaf2;
 	document.body.appendChild(document.createElement('br'));
 	textPrintNodes(masterNode, 0);
+	leaf1.stage(myCanvas.context, 240, 135);
+	leaf1.repaint();
+	leaf2.stage(myCanvas.context, 240, 135 - leaf1.height/2 - leaf2.height/2);
+	console.log(leaf1.height/2 + leaf2.height/2);
+	leaf2.repaint();
 }
 
 function textPrintNodes(node, depth){
@@ -63,7 +90,13 @@ function textPrintNodes(node, depth){
 		document.body.appendChild(document.createTextNode('\u00A0\u00A0\u00A0\u00A0'));
 		depth = depth - 1;
 	}
-	document.body.appendChild(document.createTextNode(node.text));
+	console.log(node);
+	if(node.type === 'leaf'){
+		document.body.appendChild(document.createTextNode(node.text));
+	}
+	else{
+		document.body.appendChild(document.createTextNode(node.type));
+	}
 	document.body.appendChild(document.createElement('br'));
 	textPrintNodes(node.left, 1);
 	textPrintNodes(node.right, 1);
