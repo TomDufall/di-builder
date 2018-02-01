@@ -52,12 +52,17 @@ class Node{
 class Leaf extends Node{
 	constructor(ctx, text){
 		super('leaf');
-				ctx.font = "20px arial";
-
+		ctx.font = "20px arial";
 		this.text = text;
 		this.width = ctx.measureText(this.text).width;
 		// based on tested height of font for now - tricky problem
 		this.height = 20;
+	}
+	getWidth(ctx){
+		return this.width;
+	}
+	getHeight(ctx){
+		return this.height;
 	}
 	stage(ctx, x, y){
 		this.ctx = ctx;
@@ -86,19 +91,34 @@ class hjoin extends Node{
 	getHeight(ctx){
 		var maxHeight = 0;
 		this.subs.forEach(function(item, index, array) {
-			if(item.height == null) return;
-			if(item.height > maxHeight) maxHeight = item.height;
+			if(item.getHeight(ctx) > maxHeight) maxHeight = item.getHeight(ctx);
 		});
 		return maxHeight;
 	}
 	getWidth(ctx){
 		var totalWidth = 0;
 		this.subs.forEach(function(item, index, array) {
-			if(item.width == null) return;
-			totalWidth += item.width;
+			totalWidth += item.getWidth(ctx);
 		});
 		totalWidth += (this.subs.length - 1) * this.hspace;
 		return totalWidth;
+	}
+	stage(ctx, x, y){
+		this.ctx = ctx;
+		this.x = x;
+		this.y = y;
+		var left = x - this.getWidth(ctx)/2;
+		for (let item of this.subs) {
+			item.stage(ctx, left + item.getWidth(ctx)/2, y);
+			left += item.getWidth(ctx);
+			left += this.hspace;
+		};
+	}
+	repaint(){
+		this.ctx.textBaseline = 'top';
+		this.subs.forEach(function(item, index, array) {
+			item.repaint();
+		});
 	}
 }		
 
@@ -106,6 +126,7 @@ class vjoin extends Node{
 	constructor(){
 		super('vjoin');
 		this.vspace = 5;
+		this.lines = [];
 	}
 	addAbove(node){
 		this.addPrev(node);
@@ -134,11 +155,12 @@ class vjoin extends Node{
 		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
-		var top = y - this.getHeight()/2;
+		var top = y - this.getHeight(ctx)/2;
 		this.lines = [];
 		for (let item of this.subs) {
+			top += item.height/2;
 			item.stage(ctx, x, top);
-			top += item.height;
+			top += item.height/2;
 			top += this.vspace/2;
 			this.lines.push(top);
 			top += this.vspace/2;
@@ -146,7 +168,7 @@ class vjoin extends Node{
 		if(this.lines.length > 0) this.lines.pop();
 	}
 	repaint(){
-		this.ctx.textBaseline = 'top';
+		this.ctx.textBaseline = 'middle';
 		this.subs.forEach(function(item, index, array) {
 			item.repaint();
 		});
@@ -213,16 +235,50 @@ function repaintAll() {
 var vDemo = {
 	start : function() {
 		masterNode = new vjoin();
-		this.nodes = [];
 		this.n = 1;
 		this.next();
 	},
 	next : function() {
+		if (masterNode.type != 'vjoin'){
+			vDemo.start();
+			return;
+		}
 		var newNode = new Leaf(myCanvas.context, this.n + ' x ' + (this.n + 1));
 		masterNode.addBelow(newNode);
 		this.n += 2;
 		repaintAll();
 	}
+}
+
+function hDemo(){
+	masterNode = new hjoin();
+	left = new vjoin();
+	right = new vjoin();
+	node1 = new Leaf(myCanvas.context, '1 x 1');
+	node2 = new Leaf(myCanvas.context, '2');
+	node3 = new Leaf(myCanvas.context, '3');
+	node4 = new Leaf(myCanvas.context, '4');
+	conn1 = new Leaf(myCanvas.context, 'x');
+	masterNode.addLeft(left);
+	masterNode.addRight(conn1);
+	masterNode.addRight(right);
+	left.addAbove(node1);
+	left.addBelow(node2);
+	right.addAbove(node3);
+	right.addBelow(node4);
+	repaintAll();
+}
+
+function centreMark(){
+	myCanvas.context.fillStyle="#00FF00";
+	myCanvas.context.beginPath();
+	myCanvas.context.moveTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 - 5);
+	myCanvas.context.lineTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 + 5);
+	myCanvas.context.moveTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 - 5);
+	myCanvas.context.lineTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 + 5);
+	myCanvas.context.stroke();
+	myCanvas.context.beginPath();
+	myCanvas.context.fillStyle="#000000";
 }
 
 </script>
@@ -232,6 +288,8 @@ var vDemo = {
 <button onclick="textPrintNodes(masterNode, 0)">textPrintNodes</button>
 <button onclick="vDemo.start()">vDemoStart</button>
 <button onclick="vDemo.next()">vDemoNext</button>
+<button onclick="hDemo()">hDemo</button>
+<button onclick="centreMark()">crossHairs</button>
 
   </body>
 </html>
