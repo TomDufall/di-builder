@@ -37,9 +37,13 @@ class Node{
 	addPrev(node){
 		this.subs.unshift(node);
 	}
+	stage(ctx, x, y){
+		this.subs.forEach(function(item, index, array) {
+			item.stage(ctx, x, y);
+		});
+	}
 	repaint(){
 		this.subs.forEach(function(item, index, array) {
-			console.log(item, index);
 			item.repaint();
 		});
 	}
@@ -85,7 +89,6 @@ class hjoin extends Node{
 			if(item.height == null) return;
 			if(item.height > maxHeight) maxHeight = item.height;
 		});
-		console.log('max height is ' + maxHeight);
 		return maxHeight;
 	}
 	getWidth(ctx){
@@ -95,7 +98,6 @@ class hjoin extends Node{
 			totalWidth += item.width;
 		});
 		totalWidth += (this.subs.length - 1) * this.hspace;
-		console.log('total width is ' + totalWidth);
 		return totalWidth;
 	}
 }		
@@ -118,7 +120,6 @@ class vjoin extends Node{
 			totalHeight += item.height;
 		});
 		totalHeight += (this.subs.length - 1) * this.vspace;
-		console.log('total height is ' + totalHeight);
 		return totalHeight;
 	}
 	getWidth(ctx){
@@ -127,7 +128,6 @@ class vjoin extends Node{
 			if(item.width == null) return;
 			if(item.width > maxWidth) maxWidth = item.width;
 		});
-		console.log('max width is ' + maxWidth);
 		return maxWidth;
 	}
 	stage(ctx, x, y){
@@ -135,7 +135,6 @@ class vjoin extends Node{
 		this.x = x;
 		this.y = y;
 		var top = y - this.getHeight()/2;
-		console.log('top is ' + top);
 		this.lines = [];
 		for (let item of this.subs) {
 			item.stage(ctx, x, top);
@@ -145,33 +144,24 @@ class vjoin extends Node{
 			top += this.vspace/2;
 		};
 		if(this.lines.length > 0) this.lines.pop();
-		console.log('top is ' + top);
-		console.log('lines is ' + this.lines);
 	}
 	repaint(){
 		this.ctx.textBaseline = 'top';
 		this.subs.forEach(function(item, index, array) {
 			item.repaint();
 		});
+		this.ctx.beginPath();
 		for (let item of this.lines){
-			this.ctx.moveTo(this.x - this.getWidth(this.ctx)/2, item);
-			this.ctx.lineTo(this.x + this.getWidth(this.ctx)/2, item);
-			this.ctx.stroke();
+			this.ctx.moveTo((this.x - this.getWidth(this.ctx)/2), item);
+			this.ctx.lineTo((this.x + this.getWidth(this.ctx)/2), item);
 		}
+		this.ctx.stroke();
 	}
 }
 
 function startScript(){
 	myCanvas.start();
-	masterNode = new vjoin();
-	leaf1 = new Leaf(myCanvas.context, '1 + 2');
-	leaf2 = new Leaf(myCanvas.context, '3 + 4');
-	masterNode.addNext(leaf1);
-	masterNode.addNext(leaf2);
-	document.body.appendChild(document.createElement('br'));
-	textPrintNodes(masterNode, 0);
-	masterNode.stage(myCanvas.context, 240, 135);
-	masterNode.repaint();
+	masterNode = new Node();
 }
 
 function textPrintNodes(node, depth){
@@ -182,7 +172,6 @@ function textPrintNodes(node, depth){
 		document.body.appendChild(document.createTextNode('\u00A0\u00A0\u00A0\u00A0'));
 		depth = depth - 1;
 	}
-	console.log(node);
 	if(node.type === 'leaf'){
 		document.body.appendChild(document.createTextNode(node.text));
 	}
@@ -204,6 +193,7 @@ var myCanvas = {
         this.canvas.height = 270;
         this.context = this.canvas.getContext("2d");
         document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+		document.body.appendChild(document.createElement('br'))
 //		window.addEventListener('keydown', function(e){keyMove(e.keyCode);});
 //		this.interval = setInterval(updateCanvas, (1000/30));
     },
@@ -218,13 +208,30 @@ function repaintAll() {
 		masterNode.stage(myCanvas.context, 240, 135);
 		masterNode.repaint();
 	}
-	console.log('Repaint button used');
+}
+
+var vDemo = {
+	start : function() {
+		masterNode = new vjoin();
+		this.nodes = [];
+		this.n = 1;
+		this.next();
+	},
+	next : function() {
+		var newNode = new Leaf(myCanvas.context, this.n + ' x ' + (this.n + 1));
+		masterNode.addBelow(newNode);
+		this.n += 2;
+		repaintAll();
+	}
 }
 
 </script>
 <br><br>
 <button onclick="repaintAll()">Repaint</button>
-
+<button onclick="myCanvas.clear()">Clear</button>
+<button onclick="textPrintNodes(masterNode, 0)">textPrintNodes</button>
+<button onclick="vDemo.start()">vDemoStart</button>
+<button onclick="vDemo.next()">vDemoNext</button>
 
   </body>
 </html>
