@@ -68,18 +68,15 @@ class Leaf extends Node{
 		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
-		console.log('leaf ' + this.text + ' staged at x ' + x + ', y ' + y);
 		this.getWidth(ctx);
 	}
 	repaint(){
-		console.log(this.ctx, this.x, this.y);
 		if(this.ctx == null || this.x == null || this.y == null){
 			console.log('Leaf painting error: null context, x, or y');
 		}
 		this.ctx.font = "20px arial";
 		//	ctx.fillStyle="#0000FF";
 		this.ctx.fillText(this.text, this.x - this.width/2, this.y);
-		console.log('leaf printed');
 	}
 }
 
@@ -90,12 +87,12 @@ class hjoin extends Node{
 		this.connectives = [];
 	}
 	addLeft(node){
+		if(this.subs.length !== 0) this.connectives.unshift(new defaultHCon());
 		this.addPrev(node);
-		this.connectives.unshift(new defaultHCon());
 	}
 	addRight(node){
+		if(this.subs.length !== 0) this.connectives.push(new defaultHCon());
 		this.addNext(node);
-		this.connectives.push(new defaultHCon());
 	}
 	getHeight(ctx){
 		var maxHeight = 0;
@@ -116,7 +113,6 @@ class hjoin extends Node{
 		return totalWidth;
 	}
 	stage(ctx, x, y){
-		console.log('hjoin staging');
 		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
@@ -125,7 +121,7 @@ class hjoin extends Node{
 			item.stage(ctx, left + item.getWidth(ctx)/2, y);
 			left += item.getWidth(ctx);
 			left += this.hspace;
-			if(this.subs.indexOf(item) < this.subs.length){
+			if(this.subs.indexOf(item) < this.subs.length - 1){
 				var con = this.connectives[this.subs.indexOf(item)];
 				con.stage(ctx, left + con.getWidth(ctx)/2, y);
 				left += con.getWidth(ctx);
@@ -134,7 +130,6 @@ class hjoin extends Node{
 		};
 	}
 	repaint(){
-		console.log('hjoin repainting');
 		this.ctx.textBaseline = 'top';
 		this.subs.forEach(function(item, index, array) {
 			item.repaint();
@@ -191,10 +186,8 @@ class vjoin extends Node{
 		if(this.lines.length > 0) this.lines.pop();
 	}
 	repaint(){
-		console.log(this);
 		this.ctx.textBaseline = 'middle';
 		for(let item of this.subs){
-			console.log(this.subs.indexOf(item));
 			item.repaint();
 		}
 		this.ctx.beginPath();
@@ -208,7 +201,7 @@ class vjoin extends Node{
 
 class defaultHCon extends Leaf{
 	constructor(){
-		super('con');
+		super('?');
 	}
 }
 
@@ -276,7 +269,6 @@ var vDemo = {
 		}
 		var newNode = new Leaf(this.n + ' x ' + (this.n + 1));
 		masterNode.addBelow(newNode);
-		console.log(newNode);
 		this.n += 2;
 		repaintAll();
 	}
