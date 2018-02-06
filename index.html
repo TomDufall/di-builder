@@ -69,13 +69,17 @@ class Leaf extends Node{
 		this.x = x;
 		this.y = y;
 		console.log('leaf ' + this.text + ' staged at x ' + x + ', y ' + y);
+		this.getWidth(ctx);
 	}
 	repaint(){
-		console.log('leaf painting');
-		if(this.ctx == null || this.x == null || this.y == null) return;
+		console.log(this.ctx, this.x, this.y);
+		if(this.ctx == null || this.x == null || this.y == null){
+			console.log('Leaf painting error: null context, x, or y');
+		}
 		this.ctx.font = "20px arial";
 		//	ctx.fillStyle="#0000FF";
 		this.ctx.fillText(this.text, this.x - this.width/2, this.y);
+		console.log('leaf printed');
 	}
 }
 
@@ -105,7 +109,10 @@ class hjoin extends Node{
 		this.subs.forEach(function(item, index, array) {
 			totalWidth += item.getWidth(ctx);
 		});
-		totalWidth += (this.subs.length - 1) * this.hspace;
+		this.connectives.forEach(function(item, index, array){
+			totalWidth += item.getWidth(ctx);
+		});
+		totalWidth += this.connectives.length * 2 * this.hspace;
 		return totalWidth;
 	}
 	stage(ctx, x, y){
@@ -118,9 +125,10 @@ class hjoin extends Node{
 			item.stage(ctx, left + item.getWidth(ctx)/2, y);
 			left += item.getWidth(ctx);
 			left += this.hspace;
-			if(this.subs.indexOf(item) < this.subs.length - 1){
-				this.connectives[this.subs.indexOf(item)].stage(ctx, left + item.getWidth(ctx)/2, y);
-				left += this.connectives[this.subs.indexOf(item)].getWidth(ctx);
+			if(this.subs.indexOf(item) < this.subs.length){
+				var con = this.connectives[this.subs.indexOf(item)];
+				con.stage(ctx, left + con.getWidth(ctx)/2, y);
+				left += con.getWidth(ctx);
 				left += this.hspace;
 			}
 		};
@@ -162,8 +170,7 @@ class vjoin extends Node{
 	getWidth(ctx){
 		var maxWidth = 0;
 		this.subs.forEach(function(item, index, array) {
-			if(item.width == null) return;
-			if(item.width > maxWidth) maxWidth = item.width;
+			if(item.getWidth(ctx) > maxWidth) maxWidth = item.getWidth(ctx);
 		});
 		return maxWidth;
 	}
@@ -184,10 +191,12 @@ class vjoin extends Node{
 		if(this.lines.length > 0) this.lines.pop();
 	}
 	repaint(){
+		console.log(this);
 		this.ctx.textBaseline = 'middle';
-		this.subs.forEach(function(item, index, array) {
+		for(let item of this.subs){
+			console.log(this.subs.indexOf(item));
 			item.repaint();
-		});
+		}
 		this.ctx.beginPath();
 		for (let item of this.lines){
 			this.ctx.moveTo((this.x - this.getWidth(this.ctx)/2), item);
@@ -267,6 +276,7 @@ var vDemo = {
 		}
 		var newNode = new Leaf(this.n + ' x ' + (this.n + 1));
 		masterNode.addBelow(newNode);
+		console.log(newNode);
 		this.n += 2;
 		repaintAll();
 	}
@@ -280,9 +290,7 @@ function hDemo(){
 	node2 = new Leaf('2');
 	node3 = new Leaf('3');
 	node4 = new Leaf('4');
-	conn1 = new Leaf('x');
 	masterNode.addLeft(left);
-	masterNode.addRight(conn1);
 	masterNode.addRight(right);
 	left.addAbove(node1);
 	left.addBelow(node2);
@@ -313,5 +321,5 @@ function centreMark(){
 <button onclick="hDemo()">hDemo</button>
 <button onclick="centreMark()">crossHairs</button>
 
-  </body>
+ </body>
 </html>
