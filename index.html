@@ -89,10 +89,10 @@ class ShapeLeaf extends Leaf{
 
 class HLine extends ShapeLeaf{
 	constructor(width, number, dashLength){
+		super();
 		this.width = width;
 		this.number = number;
 		this.dashLength = dashLength;
-		super();
 	}
 	setWidth(width){
 		this.width = width;
@@ -107,18 +107,23 @@ class HLine extends ShapeLeaf{
 		return this.width;
 	}
 	getHeight(){
-		// TODO
+		return 1;
+		// TODO with var heights
 	}
 	stage(ctx, x, y){
-		if(width == null)	throw new error('Line staged with invalid width parameter');
-		if(number == null) number = 1;
-		if(dashLength == null) dashLength = 0;
+		if(this.width == null)	throw new Error('Line staged with invalid width parameter');
+		if(this.number == null) this.number = 1;
+		if(this.dashLength == null) this.dashLength = 0;
+		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
-		// TO DO
 	}
 	repaint(){
-		// TO DO
+		this.ctx.strokeStyle = '#000000';
+		this.ctx.beginPath();
+		this.ctx.moveTo(this.x - this.width/2, this.y);
+		this.ctx.lineTo(this.x + this.width/2, this.y);
+		this.ctx.stroke();
 	}
 }
 
@@ -129,8 +134,8 @@ class defaultHCon extends TextLeaf{
 }
 
 class defaultVCon extends HLine{
-	constructor(){
-		super();
+	constructor(width, number, dashLength){
+		super(width, number, dashLength);
 	}
 }
 
@@ -222,7 +227,7 @@ class hjoin extends Node{
 class vjoin extends Node{
 	constructor(){
 		super('vjoin');
-		this.vspace = 5;
+		this.vspace = 2;
 		this.vcons = [];
 		this.lines = [];
 	}
@@ -238,7 +243,10 @@ class vjoin extends Node{
 			if(item.height == null) return;
 			totalHeight += item.height;
 		});
-		totalHeight += (this.subs.length - 1) * this.vspace;
+		for (let item of this.vcons){
+			totalHeight += item.getHeight();
+			totalHeight += 2 * this.vspace;
+		}
 		return totalHeight;
 	}
 	getWidth(ctx){
@@ -247,34 +255,36 @@ class vjoin extends Node{
 			if(item.getWidth(ctx) > maxWidth) maxWidth = item.getWidth(ctx);
 		});
 		return maxWidth;
+		// TO DO - vertical joins with minimum widths (e.g. subscript letters on side of line)
 	}
 	stage(ctx, x, y){
+		var maxWidth = this.getWidth(ctx);
 		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
 		var top = y - this.getHeight(ctx)/2;
-		this.lines = [];
+		this.vcons = [];
 		for (let item of this.subs) {
 			top += item.height/2;
 			item.stage(ctx, x, top);
 			top += item.height/2;
-			top += this.vspace/2;
-			this.lines.push(top);
-			top += this.vspace/2;
+			if(this.subs.indexOf(item) < this.subs.length - 1){
+				top += this.vspace;
+				this.vcons.push(new defaultVCon(maxWidth, 1, 0));
+				this.vcons[this.vcons.length - 1].stage(ctx, x, top);
+				top += this.vcons[this.vcons.length - 1].getHeight();
+				top += this.vspace;
+			}
 		};
-		if(this.lines.length > 0) this.lines.pop();
 	}
 	repaint(){
 		this.ctx.textBaseline = 'middle';
 		for(let item of this.subs){
 			item.repaint();
 		}
-		this.ctx.beginPath();
-		for (let item of this.lines){
-			this.ctx.moveTo((this.x - this.getWidth(this.ctx)/2), item);
-			this.ctx.lineTo((this.x + this.getWidth(this.ctx)/2), item);
+		for(let item of this.vcons){
+			item.repaint();
 		}
-		this.ctx.stroke();
 	}
 }
 
