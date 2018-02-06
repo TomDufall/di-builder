@@ -26,30 +26,25 @@ canvas {
 
 var masterNode;
 
-class Node{
+class Leaf{
 	constructor(type){
 		this.type = type;
-		this.subs = [];
 	}
-	addNext(node){
-		this.subs.push(node);
-	}
-	addPrev(node){
-		this.subs.unshift(node);
-	}
-	stage(ctx, x, y){
-		this.subs.forEach(function(item, index, array) {
-			item.stage(ctx, x, y);
-		});
+	stage(){
+		throw new Error('Call to abstract function');
 	}
 	repaint(){
-		this.subs.forEach(function(item, index, array) {
-			item.repaint();
-		});
+		throw new Error('Call to abstract function');
+	}
+	getWidth(ctx){
+		throw new Error('Call to abstract function');
+	}
+	getHeight(ctx){
+		throw new Error('Call to abstract function');
 	}
 }
 
-class Leaf extends Node{
+class TextLeaf extends Leaf{
 	constructor(text){
 		super('leaf');
 		this.text = text;
@@ -77,6 +72,90 @@ class Leaf extends Node{
 		this.ctx.font = "20px arial";
 		//	ctx.fillStyle="#0000FF";
 		this.ctx.fillText(this.text, this.x - this.width/2, this.y);
+	}
+}
+
+class ShapeLeaf extends Leaf{
+	constructor(){
+		super('leaf');
+	}
+	setWidth(){
+		throw new Error('Call to abstract function');
+	}
+	setHeight(){
+		throw new Error('Call to abstract function');
+	}
+}
+
+class HLine extends ShapeLeaf{
+	constructor(width, number, dashLength){
+		this.width = width;
+		this.number = number;
+		this.dashLength = dashLength;
+		super();
+	}
+	setWidth(width){
+		this.width = width;
+	}
+	setNumber(number){
+		this.number = number;
+	}
+	setDashLength(dashLength){
+		this.dashLength = dashLength;
+	}
+	getWidth(){
+		return this.width;
+	}
+	getHeight(){
+		// TODO
+	}
+	stage(ctx, x, y){
+		if(width == null)	throw new error('Line staged with invalid width parameter');
+		if(number == null) number = 1;
+		if(dashLength == null) dashLength = 0;
+		this.x = x;
+		this.y = y;
+		// TO DO
+	}
+	repaint(){
+		// TO DO
+	}
+}
+
+class defaultHCon extends TextLeaf{
+	constructor(){
+		super('?');
+	}
+}
+
+class defaultVCon extends VLine{
+	constructor(){
+		super();
+	}
+}
+
+class Node extends Leaf{
+	constructor(type){
+		super(type);
+		this.subs = [];
+	}
+	addNext(node){
+		this.subs.push(node);
+	}
+	addPrev(node){
+		this.subs.unshift(node);
+	}
+	stage(ctx, x, y){
+		console.log('Warning: relying on generic node class function');
+		this.subs.forEach(function(item, index, array) {
+			item.stage(ctx, x, y);
+		});
+	}
+	repaint(){
+		console.log('Warning: relying on generic node class function');
+		this.subs.forEach(function(item, index, array) {
+			item.repaint();
+		});
 	}
 }
 
@@ -137,7 +216,6 @@ class hjoin extends Node{
 		for (let item of this.connectives){
 			item.repaint();
 		}
-		
 	}
 }		
 
@@ -145,6 +223,7 @@ class vjoin extends Node{
 	constructor(){
 		super('vjoin');
 		this.vspace = 5;
+		this.vcons = [];
 		this.lines = [];
 	}
 	addAbove(node){
@@ -196,12 +275,6 @@ class vjoin extends Node{
 			this.ctx.lineTo((this.x + this.getWidth(this.ctx)/2), item);
 		}
 		this.ctx.stroke();
-	}
-}
-
-class defaultHCon extends Leaf{
-	constructor(){
-		super('?');
 	}
 }
 
@@ -267,7 +340,7 @@ var vDemo = {
 			vDemo.start();
 			return;
 		}
-		var newNode = new Leaf(this.n + ' x ' + (this.n + 1));
+		var newNode = new TextLeaf(this.n + ' x ' + (this.n + 1));
 		masterNode.addBelow(newNode);
 		this.n += 2;
 		repaintAll();
@@ -278,10 +351,10 @@ function hDemo(){
 	masterNode = new hjoin();
 	left = new vjoin();
 	right = new vjoin();
-	node1 = new Leaf('1 x 1');
-	node2 = new Leaf('2');
-	node3 = new Leaf('3');
-	node4 = new Leaf('4');
+	node1 = new TextLeaf('1 x 1');
+	node2 = new TextLeaf('2');
+	node3 = new TextLeaf('3');
+	node4 = new TextLeaf('4');
 	masterNode.addLeft(left);
 	masterNode.addRight(right);
 	left.addAbove(node1);
