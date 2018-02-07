@@ -384,6 +384,42 @@ var hDemo = {
 	}
 }
 
+var dualDemo = {
+	start : function() {
+		this.n = 1;
+		masterNode = new TextLeaf(this.n++);
+		repaintAll();
+	},
+	hNext : function() {
+		if (masterNode.type == null){
+			dualDemo.start();
+			return;
+		}
+		if(this.n == undefined) this.n = 1;
+		var newNode = new vjoin();
+		newNode.addAbove(new TextLeaf(this.n + ' x ' + (this.n + 1)));
+		newNode.addBelow(new TextLeaf(this.n + ' x ' + (this.n + 1)));
+		var newMaster = new hjoin();
+		newMaster.addRight(masterNode);
+		newMaster.addRight(newNode);
+		masterNode = newMaster;
+		this.n += 2;
+		repaintAll();
+	},
+	vNext : function() {
+		if (masterNode.type == null){
+			dualDemo.start();
+			return;
+		}
+		if(this.n == undefined) this.n = 1;
+		var newMaster = new vjoin();
+		newMaster.addAbove(masterNode);
+		newMaster.addBelow(new TextLeaf(this.n + ' x ' + (this.n + 1)));
+		masterNode = newMaster;
+		repaintAll();
+	}
+}
+
 function drawCentreMark(context){
 	context.fillStyle="#00FF00";
 	context.beginPath();
@@ -410,6 +446,8 @@ function toggleCentreMark(){
 <button onclick="vDemo.next()">vDemo</button>
 <button onclick="hDemo.next()">hDemo</button>
 <button onclick="toggleCentreMark()">toggle crossHairs</button>
+<button onclick="dualDemo.hNext()">add H</button>
+<button onclick="dualDemo.vNext()">add V</button>
 
  </body>
 </html>
