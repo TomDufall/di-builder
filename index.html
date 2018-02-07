@@ -9,22 +9,23 @@
     <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
     <title>DI Builder</title>
-	
+
 	<style>
 canvas {
     border: 1px solid #d3d3d3;
     background-color: #f1f1f1;
 }
 </style>
-	
+
   </head>
 
   <body onload = "startScript()">
-	
-	
+
+
 <script>
 
 var masterNode;
+var doDrawCentreMark = false;
 
 class Leaf{
 	constructor(type){
@@ -75,45 +76,48 @@ class TextLeaf extends Leaf{
 	}
 }
 
-class ShapeLeaf extends Leaf{
-	constructor(){
-		super('leaf');
+class VCon extends Leaf{
+	constructor(vConType){
+		super('vcon');
+    this.vConType = vConType;
+    this.left = '';
+    this.right = '';
 	}
-	setWidth(){
-		throw new Error('Call to abstract function');
-	}
-	setHeight(){
-		throw new Error('Call to abstract function');
-	}
+  getLatexPrefix(){
+    throw new Error('Call to abstract function');
+  }
+  getLatexLeft(){
+    return this.left;
+  }
+  getLatexRight(){
+    return this.right;
+  }
 }
 
-class HLine extends ShapeLeaf{
-	constructor(width, number, dashLength){
-		super();
-		this.width = width;
-		this.number = number;
-		this.dashLength = dashLength;
+class HLine extends VCon{
+	constructor(lineWidth, lineType){
+		super('hline');
+		this.lineWidth = lineWidth;
+		this.lineType = lineType;
+
 	}
-	setWidth(width){
-		this.width = width;
+	setLineWidth(lineWidth){
+		this.lineWidth = lineWidth;
 	}
-	setNumber(number){
-		this.number = number;
-	}
-	setDashLength(dashLength){
-		this.dashLength = dashLength;
+	setLineType(lineType){
+		this.lineType = lineType;
 	}
 	getWidth(){
-		return this.width;
+    // TODO with left/right vals
+		return this.lineWidth;
 	}
 	getHeight(){
 		return 1;
 		// TODO with var heights
 	}
 	stage(ctx, x, y){
-		if(this.width == null)	throw new Error('Line staged with invalid width parameter');
-		if(this.number == null) this.number = 1;
-		if(this.dashLength == null) this.dashLength = 0;
+		if(this.lineWidth == null)	throw new Error('Line staged with invalid line width parameter');
+		if(this.lineType == null) this.lineType = single_solid;
 		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
@@ -121,10 +125,18 @@ class HLine extends ShapeLeaf{
 	repaint(){
 		this.ctx.strokeStyle = '#000000';
 		this.ctx.beginPath();
-		this.ctx.moveTo(this.x - this.width/2, this.y);
-		this.ctx.lineTo(this.x + this.width/2, this.y);
+		this.ctx.moveTo(this.x - this.lineWidth/2, this.y);
+		this.ctx.lineTo(this.x + this.lineWidth/2, this.y);
 		this.ctx.stroke();
 	}
+  getLatexPrefix(){
+    switch(this.lineType){
+      case 'single_solid':
+        return '\\odi'
+      default:
+        throw new Error('Line type has no associated LaTeX prefix');
+    }
+  }
 }
 
 class defaultHCon extends TextLeaf{
@@ -134,8 +146,8 @@ class defaultHCon extends TextLeaf{
 }
 
 class defaultVCon extends HLine{
-	constructor(width, number, dashLength){
-		super(width, number, dashLength);
+	constructor(width, lineType){
+		super(width, lineType);
 	}
 }
 
@@ -214,7 +226,6 @@ class hjoin extends Node{
 		};
 	}
 	repaint(){
-		this.ctx.textBaseline = 'top';
 		this.subs.forEach(function(item, index, array) {
 			item.repaint();
 		});
@@ -222,14 +233,13 @@ class hjoin extends Node{
 			item.repaint();
 		}
 	}
-}		
+}
 
 class vjoin extends Node{
 	constructor(){
 		super('vjoin');
 		this.vspace = 2;
 		this.vcons = [];
-		this.lines = [];
 	}
 	addAbove(node){
 		this.addPrev(node);
@@ -239,12 +249,11 @@ class vjoin extends Node{
 	}
 	getHeight(ctx){
 		var totalHeight = 0;
-		this.subs.forEach(function(item, index, array) {
-			if(item.height == null) return;
-			totalHeight += item.height;
-		});
+		for (let item of this.subs){
+			totalHeight += item.getHeight(ctx);
+		}
 		for (let item of this.vcons){
-			totalHeight += item.getHeight();
+			totalHeight += item.getHeight(ctx);
 			totalHeight += 2 * this.vspace;
 		}
 		return totalHeight;
@@ -265,20 +274,18 @@ class vjoin extends Node{
 		var top = y - this.getHeight(ctx)/2;
 		this.vcons = [];
 		for (let item of this.subs) {
-			top += item.height/2;
-			item.stage(ctx, x, top);
-			top += item.height/2;
+			item.stage(ctx, x, top + item.getHeight(ctx)/2);
+			top += item.getHeight(ctx);
 			if(this.subs.indexOf(item) < this.subs.length - 1){
 				top += this.vspace;
-				this.vcons.push(new defaultVCon(maxWidth, 1, 0));
+				this.vcons.push(new defaultVCon(maxWidth, 'single_solid'));
 				this.vcons[this.vcons.length - 1].stage(ctx, x, top);
-				top += this.vcons[this.vcons.length - 1].getHeight();
+				top += this.vcons[this.vcons.length - 1].getHeight(ctx);
 				top += this.vspace;
 			}
 		};
 	}
 	repaint(){
-		this.ctx.textBaseline = 'middle';
 		for(let item of this.subs){
 			item.repaint();
 		}
@@ -286,6 +293,18 @@ class vjoin extends Node{
 			item.repaint();
 		}
 	}
+  getLatex(){
+    if(this.subs.length < 1) return '';
+    else if(this.subs.length === 1) return '\\od{' + this.subs[0].text + '}';
+    var latex = '\\odh{' + this.subs[0].text + '}';
+    var i;
+    for(i = 1; i < this.subs.length; i++){
+      var con = this.vcons[i-1];
+      latex = con.getLatexPrefix() + '{' + latex + '}{' + con.getLatexLeft() + '}{' + this.subs[i].text + '}{' + con.getLatexRight() + '}';
+    }
+    latex = '\\od{' + latex + '}';
+    return latex;
+  }
 }
 
 function startScript(){
@@ -333,57 +352,92 @@ var myCanvas = {
 
 function repaintAll() {
     myCanvas.clear();
+	myCanvas.context.textBaseline = 'middle';
 	if(masterNode != null){
 		masterNode.stage(myCanvas.context, 240, 135);
 		masterNode.repaint();
 	}
+	if(doDrawCentreMark) drawCentreMark(myCanvas.context);
 }
 
-var vDemo = {
+function clearNodes(){
+	masterNode = new Node();
+	repaintAll();
+}
+
+var dualDemo = {
 	start : function() {
-		masterNode = new vjoin();
 		this.n = 1;
-		this.next();
+		masterNode = new TextLeaf(this.n++);
+		repaintAll();
 	},
-	next : function() {
-		if (masterNode.type != 'vjoin'){
-			vDemo.start();
+	hNext : function() {
+		if (masterNode.type == null){
+			dualDemo.start();
 			return;
 		}
-		var newNode = new TextLeaf(this.n + ' x ' + (this.n + 1));
-		masterNode.addBelow(newNode);
-		this.n += 2;
+		if(this.n == undefined) this.n = 1;
+		if(masterNode.type === 'hjoin'){
+			masterNode.addRight(new TextLeaf(this.n++));
+		}
+		else{
+			var newMaster = new hjoin();
+			newMaster.addLeft(masterNode);
+			newMaster.addRight(new TextLeaf(this.n++));
+			masterNode = newMaster;
+		}
+		repaintAll();
+	},
+	vNext : function() {
+		if (masterNode.type == null){
+			dualDemo.start();
+			return;
+		}
+		if(this.n == undefined) this.n = 1;
+		if(masterNode.type === 'vjoin'){
+			masterNode.addBelow(new TextLeaf(this.n++));
+		}
+		else{
+			var newMaster = new vjoin();
+			newMaster.addAbove(masterNode);
+			newMaster.addBelow(new TextLeaf(this.n++));
+			masterNode = newMaster;
+		}
 		repaintAll();
 	}
 }
 
-function hDemo(){
-	masterNode = new hjoin();
-	left = new vjoin();
-	right = new vjoin();
-	node1 = new TextLeaf('1 x 1');
-	node2 = new TextLeaf('2');
-	node3 = new TextLeaf('3');
-	node4 = new TextLeaf('4');
-	masterNode.addLeft(left);
-	masterNode.addRight(right);
-	left.addAbove(node1);
-	left.addBelow(node2);
-	right.addAbove(node3);
-	right.addBelow(node4);
+function drawCentreMark(context){
+	context.fillStyle="#00FF00";
+	context.beginPath();
+	context.moveTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 - 5);
+	context.lineTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 + 5);
+	context.moveTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 - 5);
+	context.lineTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 + 5);
+	context.stroke();
+	context.beginPath();
+	context.fillStyle="#000000";
+}
+
+function toggleCentreMark(){
+	doDrawCentreMark = !doDrawCentreMark;
 	repaintAll();
 }
 
-function centreMark(){
-	myCanvas.context.fillStyle="#00FF00";
-	myCanvas.context.beginPath();
-	myCanvas.context.moveTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 - 5);
-	myCanvas.context.lineTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 + 5);
-	myCanvas.context.moveTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 - 5);
-	myCanvas.context.lineTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 + 5);
-	myCanvas.context.stroke();
-	myCanvas.context.beginPath();
-	myCanvas.context.fillStyle="#000000";
+function toLatex(){
+  if(masterNode == null) return '';
+  else if(masterNode.type === 'leaf') return '\\od{' + masterNode.text + '}';
+  else if(masterNode.type === 'vjoin') return masterNode.getLatex();
+  else if(masterNode.subs.length < 1) return '';
+  else if(masterNode.subs.length === 1) return '\\od{' + masterNode.subs[0].text + '}';
+  else return 'This type is not currently supported';
+}
+
+function showLatex(){
+  document.getElementById("latexOutput").innerHTML = '';
+  var text = toLatex();
+  if(text == null) text = '';
+  document.getElementById("latexOutput").innerHTML = text;
 }
 
 </script>
@@ -391,10 +445,15 @@ function centreMark(){
 <button onclick="repaintAll()">Repaint</button>
 <button onclick="myCanvas.clear()">Clear</button>
 <button onclick="textPrintNodes(masterNode, 0)">textPrintNodes</button>
-<button onclick="vDemo.start()">vDemoStart</button>
-<button onclick="vDemo.next()">vDemoNext</button>
-<button onclick="hDemo()">hDemo</button>
-<button onclick="centreMark()">crossHairs</button>
-
- </body>
+<button onclick="toggleCentreMark()">toggle crossHairs</button>
+<button onclick="clearNodes()">reset demo</button>
+<button onclick="dualDemo.hNext()">demo add H</button>
+<button onclick="dualDemo.vNext()">demo add V</button>
+<br>
+<button onclick="showLatex()">Generate LaTeX</button>
+<br>
+<code><p style="color:White;" id="latexOutput"></p></code>
+<br>
+<p style="color:White;" id="textPrintNodesOutput"></p>
+</body>
 </html>
