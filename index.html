@@ -463,11 +463,19 @@ function toggleCentreMark(){
 }
 
 function toLatex(){
-  if(masterNode == null) return;
+  if(masterNode == null) return '';
   else if(masterNode.type === 'leaf') return '\\od{' + masterNode.text + '}';
   else if(masterNode.type === 'vjoin') return masterNode.getLatex();
   else if(masterNode.subs.length < 1) return '';
   else if(masterNode.subs.length === 1) return '\\od{' + masterNode.subs[0].text + '}';
+  else return 'This type is not currently supported';
+}
+
+function showLatex(){
+  document.getElementById("latexOutput").innerHTML = '';
+  var text = toLatex();
+  if(text == null) text = '';
+  document.getElementById("latexOutput").innerHTML = text;
 }
 
 </script>
@@ -481,7 +489,10 @@ function toLatex(){
 <button onclick="toggleCentreMark()">toggle crossHairs</button>
 <button onclick="dualDemo.hNext()">add H</button>
 <button onclick="dualDemo.vNext()">add V</button>
-<button onclick="console.log(toLatex())">LaTeX</button>
+<br>
+<button onclick="showLatex()">Generate LaTeX</button>
+<br>
+<code><p style="color:White;" id="latexOutput"></p></code>
 
  </body>
 </html>
