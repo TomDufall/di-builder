@@ -26,39 +26,34 @@ canvas {
 
 var masterNode;
 
-class Node{
+class Leaf{
 	constructor(type){
 		this.type = type;
-		this.subs = [];
 	}
-	addNext(node){
-		this.subs.push(node);
-	}
-	addPrev(node){
-		this.subs.unshift(node);
-	}
-	stage(ctx, x, y){
-		this.subs.forEach(function(item, index, array) {
-			item.stage(ctx, x, y);
-		});
+	stage(){
+		throw new Error('Call to abstract function');
 	}
 	repaint(){
-		this.subs.forEach(function(item, index, array) {
-			item.repaint();
-		});
+		throw new Error('Call to abstract function');
+	}
+	getWidth(ctx){
+		throw new Error('Call to abstract function');
+	}
+	getHeight(ctx){
+		throw new Error('Call to abstract function');
 	}
 }
 
-class Leaf extends Node{
-	constructor(ctx, text){
+class TextLeaf extends Leaf{
+	constructor(text){
 		super('leaf');
-		ctx.font = "20px arial";
 		this.text = text;
-		this.width = ctx.measureText(this.text).width;
 		// based on tested height of font for now - tricky problem
 		this.height = 20;
 	}
 	getWidth(ctx){
+		ctx.font = "20px arial";
+		this.width = ctx.measureText(this.text).width;
 		return this.width;
 	}
 	getHeight(ctx){
@@ -68,12 +63,104 @@ class Leaf extends Node{
 		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
+		this.getWidth(ctx);
 	}
 	repaint(){
-		if(this.ctx == null || this.x == null || this.y == null) return;
+		if(this.ctx == null || this.x == null || this.y == null){
+			console.log('Leaf painting error: null context, x, or y');
+		}
 		this.ctx.font = "20px arial";
 		//	ctx.fillStyle="#0000FF";
 		this.ctx.fillText(this.text, this.x - this.width/2, this.y);
+	}
+}
+
+class ShapeLeaf extends Leaf{
+	constructor(){
+		super('leaf');
+	}
+	setWidth(){
+		throw new Error('Call to abstract function');
+	}
+	setHeight(){
+		throw new Error('Call to abstract function');
+	}
+}
+
+class HLine extends ShapeLeaf{
+	constructor(width, number, dashLength){
+		super();
+		this.width = width;
+		this.number = number;
+		this.dashLength = dashLength;
+	}
+	setWidth(width){
+		this.width = width;
+	}
+	setNumber(number){
+		this.number = number;
+	}
+	setDashLength(dashLength){
+		this.dashLength = dashLength;
+	}
+	getWidth(){
+		return this.width;
+	}
+	getHeight(){
+		return 1;
+		// TODO with var heights
+	}
+	stage(ctx, x, y){
+		if(this.width == null)	throw new Error('Line staged with invalid width parameter');
+		if(this.number == null) this.number = 1;
+		if(this.dashLength == null) this.dashLength = 0;
+		this.ctx = ctx;
+		this.x = x;
+		this.y = y;
+	}
+	repaint(){
+		this.ctx.strokeStyle = '#000000';
+		this.ctx.beginPath();
+		this.ctx.moveTo(this.x - this.width/2, this.y);
+		this.ctx.lineTo(this.x + this.width/2, this.y);
+		this.ctx.stroke();
+	}
+}
+
+class defaultHCon extends TextLeaf{
+	constructor(){
+		super('?');
+	}
+}
+
+class defaultVCon extends HLine{
+	constructor(width, number, dashLength){
+		super(width, number, dashLength);
+	}
+}
+
+class Node extends Leaf{
+	constructor(type){
+		super(type);
+		this.subs = [];
+	}
+	addNext(node){
+		this.subs.push(node);
+	}
+	addPrev(node){
+		this.subs.unshift(node);
+	}
+	stage(ctx, x, y){
+		console.log('Warning: relying on generic node class function');
+		this.subs.forEach(function(item, index, array) {
+			item.stage(ctx, x, y);
+		});
+	}
+	repaint(){
+		console.log('Warning: relying on generic node class function');
+		this.subs.forEach(function(item, index, array) {
+			item.repaint();
+		});
 	}
 }
 
@@ -81,11 +168,14 @@ class hjoin extends Node{
 	constructor(){
 		super('hjoin');
 		this.hspace = 5;
+		this.connectives = [];
 	}
 	addLeft(node){
+		if(this.subs.length !== 0) this.connectives.unshift(new defaultHCon());
 		this.addPrev(node);
 	}
 	addRight(node){
+		if(this.subs.length !== 0) this.connectives.push(new defaultHCon());
 		this.addNext(node);
 	}
 	getHeight(ctx){
@@ -100,7 +190,10 @@ class hjoin extends Node{
 		this.subs.forEach(function(item, index, array) {
 			totalWidth += item.getWidth(ctx);
 		});
-		totalWidth += (this.subs.length - 1) * this.hspace;
+		this.connectives.forEach(function(item, index, array){
+			totalWidth += item.getWidth(ctx);
+		});
+		totalWidth += this.connectives.length * 2 * this.hspace;
 		return totalWidth;
 	}
 	stage(ctx, x, y){
@@ -112,6 +205,12 @@ class hjoin extends Node{
 			item.stage(ctx, left + item.getWidth(ctx)/2, y);
 			left += item.getWidth(ctx);
 			left += this.hspace;
+			if(this.subs.indexOf(item) < this.subs.length - 1){
+				var con = this.connectives[this.subs.indexOf(item)];
+				con.stage(ctx, left + con.getWidth(ctx)/2, y);
+				left += con.getWidth(ctx);
+				left += this.hspace;
+			}
 		};
 	}
 	repaint(){
@@ -119,13 +218,17 @@ class hjoin extends Node{
 		this.subs.forEach(function(item, index, array) {
 			item.repaint();
 		});
+		for (let item of this.connectives){
+			item.repaint();
+		}
 	}
 }		
 
 class vjoin extends Node{
 	constructor(){
 		super('vjoin');
-		this.vspace = 5;
+		this.vspace = 2;
+		this.vcons = [];
 		this.lines = [];
 	}
 	addAbove(node){
@@ -140,44 +243,48 @@ class vjoin extends Node{
 			if(item.height == null) return;
 			totalHeight += item.height;
 		});
-		totalHeight += (this.subs.length - 1) * this.vspace;
+		for (let item of this.vcons){
+			totalHeight += item.getHeight();
+			totalHeight += 2 * this.vspace;
+		}
 		return totalHeight;
 	}
 	getWidth(ctx){
 		var maxWidth = 0;
 		this.subs.forEach(function(item, index, array) {
-			if(item.width == null) return;
-			if(item.width > maxWidth) maxWidth = item.width;
+			if(item.getWidth(ctx) > maxWidth) maxWidth = item.getWidth(ctx);
 		});
 		return maxWidth;
+		// TO DO - vertical joins with minimum widths (e.g. subscript letters on side of line)
 	}
 	stage(ctx, x, y){
+		var maxWidth = this.getWidth(ctx);
 		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
 		var top = y - this.getHeight(ctx)/2;
-		this.lines = [];
+		this.vcons = [];
 		for (let item of this.subs) {
 			top += item.height/2;
 			item.stage(ctx, x, top);
 			top += item.height/2;
-			top += this.vspace/2;
-			this.lines.push(top);
-			top += this.vspace/2;
+			if(this.subs.indexOf(item) < this.subs.length - 1){
+				top += this.vspace;
+				this.vcons.push(new defaultVCon(maxWidth, 1, 0));
+				this.vcons[this.vcons.length - 1].stage(ctx, x, top);
+				top += this.vcons[this.vcons.length - 1].getHeight();
+				top += this.vspace;
+			}
 		};
-		if(this.lines.length > 0) this.lines.pop();
 	}
 	repaint(){
 		this.ctx.textBaseline = 'middle';
-		this.subs.forEach(function(item, index, array) {
+		for(let item of this.subs){
 			item.repaint();
-		});
-		this.ctx.beginPath();
-		for (let item of this.lines){
-			this.ctx.moveTo((this.x - this.getWidth(this.ctx)/2), item);
-			this.ctx.lineTo((this.x + this.getWidth(this.ctx)/2), item);
 		}
-		this.ctx.stroke();
+		for(let item of this.vcons){
+			item.repaint();
+		}
 	}
 }
 
@@ -243,7 +350,7 @@ var vDemo = {
 			vDemo.start();
 			return;
 		}
-		var newNode = new Leaf(myCanvas.context, this.n + ' x ' + (this.n + 1));
+		var newNode = new TextLeaf(this.n + ' x ' + (this.n + 1));
 		masterNode.addBelow(newNode);
 		this.n += 2;
 		repaintAll();
@@ -254,13 +361,11 @@ function hDemo(){
 	masterNode = new hjoin();
 	left = new vjoin();
 	right = new vjoin();
-	node1 = new Leaf(myCanvas.context, '1 x 1');
-	node2 = new Leaf(myCanvas.context, '2');
-	node3 = new Leaf(myCanvas.context, '3');
-	node4 = new Leaf(myCanvas.context, '4');
-	conn1 = new Leaf(myCanvas.context, 'x');
+	node1 = new TextLeaf('1 x 1');
+	node2 = new TextLeaf('2');
+	node3 = new TextLeaf('3');
+	node4 = new TextLeaf('4');
 	masterNode.addLeft(left);
-	masterNode.addRight(conn1);
 	masterNode.addRight(right);
 	left.addAbove(node1);
 	left.addBelow(node2);
@@ -291,5 +396,5 @@ function centreMark(){
 <button onclick="hDemo()">hDemo</button>
 <button onclick="centreMark()">crossHairs</button>
 
-  </body>
+ </body>
 </html>
