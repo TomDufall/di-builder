@@ -230,7 +230,6 @@ class vjoin extends Node{
 		super('vjoin');
 		this.vspace = 2;
 		this.vcons = [];
-		this.lines = [];
 	}
 	addAbove(node){
 		this.addPrev(node);
@@ -240,12 +239,11 @@ class vjoin extends Node{
 	}
 	getHeight(ctx){
 		var totalHeight = 0;
-		this.subs.forEach(function(item, index, array) {
-			if(item.height == null) return;
-			totalHeight += item.height;
-		});
+		for (let item of this.subs){
+			totalHeight += item.getHeight(ctx);
+		}
 		for (let item of this.vcons){
-			totalHeight += item.getHeight();
+			totalHeight += item.getHeight(ctx);
 			totalHeight += 2 * this.vspace;
 		}
 		return totalHeight;
@@ -266,14 +264,13 @@ class vjoin extends Node{
 		var top = y - this.getHeight(ctx)/2;
 		this.vcons = [];
 		for (let item of this.subs) {
-			top += item.height/2;
-			item.stage(ctx, x, top);
-			top += item.height/2;
+			item.stage(ctx, x, top + item.getHeight(ctx)/2);
+			top += item.getHeight(ctx);
 			if(this.subs.indexOf(item) < this.subs.length - 1){
 				top += this.vspace;
 				this.vcons.push(new defaultVCon(maxWidth, 1, 0));
 				this.vcons[this.vcons.length - 1].stage(ctx, x, top);
-				top += this.vcons[this.vcons.length - 1].getHeight();
+				top += this.vcons[this.vcons.length - 1].getHeight(ctx);
 				top += this.vspace;
 			}
 		};
