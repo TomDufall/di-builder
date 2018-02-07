@@ -25,6 +25,7 @@ canvas {
 <script>
 
 var masterNode;
+var doDrawCentreMark = false;
 
 class Leaf{
 	constructor(type){
@@ -337,6 +338,7 @@ function repaintAll() {
 		masterNode.stage(myCanvas.context, 240, 135);
 		masterNode.repaint();
 	}
+	if(doDrawCentreMark) drawCentreMark(myCanvas.context);
 }
 
 var vDemo = {
@@ -374,16 +376,21 @@ function hDemo(){
 	repaintAll();
 }
 
-function centreMark(){
-	myCanvas.context.fillStyle="#00FF00";
-	myCanvas.context.beginPath();
-	myCanvas.context.moveTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 - 5);
-	myCanvas.context.lineTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 + 5);
-	myCanvas.context.moveTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 - 5);
-	myCanvas.context.lineTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 + 5);
-	myCanvas.context.stroke();
-	myCanvas.context.beginPath();
-	myCanvas.context.fillStyle="#000000";
+function drawCentreMark(context){
+	context.fillStyle="#00FF00";
+	context.beginPath();
+	context.moveTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 - 5);
+	context.lineTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 + 5);
+	context.moveTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 - 5);
+	context.lineTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 + 5);
+	context.stroke();
+	context.beginPath();
+	context.fillStyle="#000000";
+}
+
+function toggleCentreMark(){
+	doDrawCentreMark = !doDrawCentreMark;
+	repaintAll();
 }
 
 </script>
@@ -394,7 +401,7 @@ function centreMark(){
 <button onclick="vDemo.start()">vDemoStart</button>
 <button onclick="vDemo.next()">vDemoNext</button>
 <button onclick="hDemo()">hDemo</button>
-<button onclick="centreMark()">crossHairs</button>
+<button onclick="toggleCentreMark()">toggle crossHairs</button>
 
  </body>
 </html>
