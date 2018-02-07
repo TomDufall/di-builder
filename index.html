@@ -215,7 +215,6 @@ class hjoin extends Node{
 		};
 	}
 	repaint(){
-		this.ctx.textBaseline = 'top';
 		this.subs.forEach(function(item, index, array) {
 			item.repaint();
 		});
@@ -276,7 +275,6 @@ class vjoin extends Node{
 		};
 	}
 	repaint(){
-		this.ctx.textBaseline = 'middle';
 		for(let item of this.subs){
 			item.repaint();
 		}
@@ -331,6 +329,7 @@ var myCanvas = {
 
 function repaintAll() {
     myCanvas.clear();
+	myCanvas.context.textBaseline = 'middle';
 	if(masterNode != null){
 		masterNode.stage(myCanvas.context, 240, 135);
 		masterNode.repaint();
@@ -393,14 +392,15 @@ var dualDemo = {
 			return;
 		}
 		if(this.n == undefined) this.n = 1;
-		var newNode = new vjoin();
-		newNode.addAbove(new TextLeaf(this.n + ' x ' + (this.n + 1)));
-		newNode.addBelow(new TextLeaf(this.n + ' x ' + (this.n + 1)));
-		var newMaster = new hjoin();
-		newMaster.addRight(masterNode);
-		newMaster.addRight(newNode);
-		masterNode = newMaster;
-		this.n += 2;
+		if(masterNode.type === 'hjoin'){
+			masterNode.addRight(new TextLeaf(this.n++));
+		}
+		else{
+			var newMaster = new hjoin();
+			newMaster.addLeft(masterNode);
+			newMaster.addRight(new TextLeaf(this.n++));
+			masterNode = newMaster;
+		}
 		repaintAll();
 	},
 	vNext : function() {
@@ -409,10 +409,15 @@ var dualDemo = {
 			return;
 		}
 		if(this.n == undefined) this.n = 1;
-		var newMaster = new vjoin();
-		newMaster.addAbove(masterNode);
-		newMaster.addBelow(new TextLeaf(this.n + ' x ' + (this.n + 1)));
-		masterNode = newMaster;
+		if(masterNode.type === 'vjoin'){
+			masterNode.addBelow(new TextLeaf(this.n++));
+		}
+		else{
+			var newMaster = new vjoin();
+			newMaster.addAbove(masterNode);
+			newMaster.addBelow(new TextLeaf(this.n++));
+			masterNode = newMaster;
+		}
 		repaintAll();
 	}
 }
