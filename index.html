@@ -365,44 +365,6 @@ function clearNodes(){
 	repaintAll();
 }
 
-var vDemo = {
-	start : function() {
-		masterNode = new vjoin();
-		this.n = 1;
-		this.next();
-	},
-	next : function() {
-		if (masterNode.type != 'vjoin'){
-			vDemo.start();
-			return;
-		}
-		var newNode = new TextLeaf(this.n + ' x ' + (this.n + 1));
-		masterNode.addBelow(newNode);
-		this.n += 2;
-		repaintAll();
-	}
-}
-
-var hDemo = {
-	start : function() {
-		masterNode = new hjoin();
-		this.n = 1;
-		this.next();
-	},
-	next : function() {
-		if (masterNode.type != 'hjoin'){
-			hDemo.start();
-			return;
-		}
-		var newNode = new vjoin();
-		newNode.addAbove(new TextLeaf(this.n + ' x ' + (this.n + 1)));
-		newNode.addBelow(new TextLeaf(this.n + ' x ' + (this.n + 1)));
-		masterNode.addRight(newNode);
-		this.n += 2;
-		repaintAll();
-	}
-}
-
 var dualDemo = {
 	start : function() {
 		this.n = 1;
@@ -483,16 +445,15 @@ function showLatex(){
 <button onclick="repaintAll()">Repaint</button>
 <button onclick="myCanvas.clear()">Clear</button>
 <button onclick="textPrintNodes(masterNode, 0)">textPrintNodes</button>
-<button onclick="clearNodes()">reset demo</button>
-<button onclick="vDemo.next()">vDemo</button>
-<button onclick="hDemo.next()">hDemo</button>
 <button onclick="toggleCentreMark()">toggle crossHairs</button>
-<button onclick="dualDemo.hNext()">add H</button>
-<button onclick="dualDemo.vNext()">add V</button>
+<button onclick="clearNodes()">reset demo</button>
+<button onclick="dualDemo.hNext()">demo add H</button>
+<button onclick="dualDemo.vNext()">demo add V</button>
 <br>
 <button onclick="showLatex()">Generate LaTeX</button>
 <br>
 <code><p style="color:White;" id="latexOutput"></p></code>
-
- </body>
+<br>
+<p style="color:White;" id="textPrintNodesOutput"></p>
+</body>
 </html>
