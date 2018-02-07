@@ -341,6 +341,11 @@ function repaintAll() {
 	if(doDrawCentreMark) drawCentreMark(myCanvas.context);
 }
 
+function clearNodes(){
+	masterNode = new Node();
+	repaintAll();
+}
+
 var vDemo = {
 	start : function() {
 		masterNode = new vjoin();
@@ -359,21 +364,24 @@ var vDemo = {
 	}
 }
 
-function hDemo(){
-	masterNode = new hjoin();
-	left = new vjoin();
-	right = new vjoin();
-	node1 = new TextLeaf('1 x 1');
-	node2 = new TextLeaf('2');
-	node3 = new TextLeaf('3');
-	node4 = new TextLeaf('4');
-	masterNode.addLeft(left);
-	masterNode.addRight(right);
-	left.addAbove(node1);
-	left.addBelow(node2);
-	right.addAbove(node3);
-	right.addBelow(node4);
-	repaintAll();
+var hDemo = {
+	start : function() {
+		masterNode = new hjoin();
+		this.n = 1;
+		this.next();
+	},
+	next : function() {
+		if (masterNode.type != 'hjoin'){
+			hDemo.start();
+			return;
+		}
+		var newNode = new vjoin();
+		newNode.addAbove(new TextLeaf(this.n + ' x ' + (this.n + 1)));
+		newNode.addBelow(new TextLeaf(this.n + ' x ' + (this.n + 1)));
+		masterNode.addRight(newNode);
+		this.n += 2;
+		repaintAll();
+	}
 }
 
 function drawCentreMark(context){
@@ -398,9 +406,9 @@ function toggleCentreMark(){
 <button onclick="repaintAll()">Repaint</button>
 <button onclick="myCanvas.clear()">Clear</button>
 <button onclick="textPrintNodes(masterNode, 0)">textPrintNodes</button>
-<button onclick="vDemo.start()">vDemoStart</button>
-<button onclick="vDemo.next()">vDemoNext</button>
-<button onclick="hDemo()">hDemo</button>
+<button onclick="clearNodes()">reset demo</button>
+<button onclick="vDemo.next()">vDemo</button>
+<button onclick="hDemo.next()">hDemo</button>
 <button onclick="toggleCentreMark()">toggle crossHairs</button>
 
  </body>
