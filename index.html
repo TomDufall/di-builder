@@ -112,8 +112,20 @@ class HLine extends VCon{
 		return this.lineWidth;
 	}
 	getHeight(){
-		return 1;
-		// TODO with var heights
+    var height = 0;
+    switch(this.lineType){
+      case 'single_solid':
+      case 'single_dotted':
+        height = 1;
+        break;
+      case 'double_solid':
+        height = 5;
+        break;
+      default:
+        throw new Error('Cannot return height - line type not set');
+    }
+    return height;
+		// TODO with var heights - check if heigher than fixed height
 	}
 	stage(ctx, x, y){
 		if(this.lineWidth == null)	throw new Error('Line staged with invalid line width parameter');
@@ -123,16 +135,34 @@ class HLine extends VCon{
 		this.y = y;
 	}
 	repaint(){
-		this.ctx.strokeStyle = '#000000';
-		this.ctx.beginPath();
-		this.ctx.moveTo(this.x - this.lineWidth/2, this.y);
-		this.ctx.lineTo(this.x + this.lineWidth/2, this.y);
-		this.ctx.stroke();
+  	this.ctx.strokeStyle = '#000000';
+    this.ctx.beginPath();
+    switch(this.lineType){
+      case 'single_solid':
+        this.ctx.moveTo(this.x - this.lineWidth/2, this.y);
+        this.ctx.lineTo(this.x + this.lineWidth/2, this.y);
+        break;
+      case 'single_dotted':
+        break;
+      case 'double_solid':
+        this.ctx.moveTo(this.x - this.lineWidth/2, this.y - 2);
+        this.ctx.lineTo(this.x + this.lineWidth/2, this.y - 2);
+        this.ctx.moveTo(this.x - this.lineWidth/2, this.y + 2);
+        this.ctx.lineTo(this.x + this.lineWidth/2, this.y + 2);
+        break;
+      default:
+        throw new Error('Cannot draw line - line type not set');
+    }
+    this.ctx.stroke();
 	}
   getLatexPrefix(){
     switch(this.lineType){
       case 'single_solid':
-        return '\\odi'
+        return '\\odi';
+      case 'double_solid':
+        return '\\odI';
+      case 'single_dotted':
+        return '\\odo';
       default:
         throw new Error('Line type has no associated LaTeX prefix');
     }
