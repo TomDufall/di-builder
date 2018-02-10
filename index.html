@@ -145,12 +145,6 @@ class defaultHCon extends TextLeaf{
 	}
 }
 
-class defaultVCon extends HLine{
-	constructor(width, lineType){
-		super(width, lineType);
-	}
-}
-
 class Node extends Leaf{
 	constructor(type){
 		super(type);
@@ -278,7 +272,7 @@ class vjoin extends Node{
 			top += item.getHeight(ctx);
 			if(this.subs.indexOf(item) < this.subs.length - 1){
 				top += this.vspace;
-				this.vcons.push(new defaultVCon(maxWidth, 'single_solid'));
+				this.vcons.push(new HLine(maxWidth, 'single_solid'));
 				this.vcons[this.vcons.length - 1].stage(ctx, x, top);
 				top += this.vcons[this.vcons.length - 1].getHeight(ctx);
 				top += this.vspace;
