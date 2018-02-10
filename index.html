@@ -143,6 +143,18 @@ class HLine extends VCon{
         this.ctx.lineTo(this.x + this.lineWidth/2, this.y);
         break;
       case 'single_dotted':
+        var x;
+        const dashLength = 3;
+        for(x = this.x - this.lineWidth/2; x < this.x + this.lineWidth/2; x += 2 * dashLength){
+          this.ctx.moveTo(x, this.y);
+          if(x + dashLength > this.x + this.lineWidth/2){
+            this.ctx.lineTo(this.x + this.lineWidth/2, this.y);
+            break;
+          }
+          else{
+            this.ctx.lineTo(x + dashLength, this.y);
+          }
+        }
         break;
       case 'double_solid':
         this.ctx.moveTo(this.x - this.lineWidth/2, this.y - 2);
