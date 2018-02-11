@@ -476,6 +476,12 @@ function showLatex(){
   document.getElementById("latexOutput").innerHTML = text;
 }
 
+function unicodeToHTML5(unicode){
+  // convert Unicode U+ codes to HTML5 &#x representation
+  if(unicode.slice(0,1) === 'U+') return null;
+  return unicode.replace('U+', '&#x');
+}
+
 </script>
 <br><br>
 <button onclick="repaintAll()">Repaint</button>
