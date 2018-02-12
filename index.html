@@ -74,6 +74,25 @@ class TextLeaf extends Leaf{
 		//	ctx.fillStyle="#0000FF";
 		this.ctx.fillText(this.text, this.x - this.width/2, this.y);
 	}
+  getLatex(){
+    return this.text;
+  }
+}
+
+class UnicodeLeaf extends TextLeaf{
+  constructor(canvasText, latexCode){
+    super(canvasText);
+    this.latex = latexCode;
+  }
+  getLatex(){
+    return this.latex;
+  }
+}
+
+class IncludedUnicodeLeaf extends UnicodeLeaf{
+  constructor(key){
+    super(getUnicodeChar(key), getUnicodeLatex(key));
+  }
 }
 
 class VCon extends Leaf{
@@ -181,9 +200,9 @@ class HLine extends VCon{
   }
 }
 
-class defaultHCon extends TextLeaf{
+class defaultHCon extends IncludedUnicodeLeaf{
 	constructor(){
-		super('?');
+		super('log_and');
 	}
 }
 
@@ -269,6 +288,16 @@ class hjoin extends Node{
 			item.repaint();
 		}
 	}
+  getLatex(){
+    var result = '';
+    for (let item of this.subs){
+      result = result + item.getLatex();
+      if(this.subs.indexOf(item) < this.subs.length -1){
+        result = result + ' ' + this.connectives[this.subs.indexOf(item)].getLatex() + ' ';
+      }
+    }
+    return result;
+  }
 }
 
 class vjoin extends Node{
@@ -331,8 +360,8 @@ class vjoin extends Node{
 	}
   getLatex(){
     if(this.subs.length < 1) return '';
-    else if(this.subs.length === 1) return '\\od{' + this.subs[0].text + '}';
-    var latex = '\\odh{' + this.subs[0].text + '}';
+    else if(this.subs.length === 1) return '\\od{' + this.subs[0].getLatex() + '}';
+    var latex = '\\odh{' + this.subs[0].getLatex() + '}';
     var i;
     for(i = 1; i < this.subs.length; i++){
       var con = this.vcons[i-1];
@@ -345,29 +374,6 @@ class vjoin extends Node{
 
 function startScript(){
 	myCanvas.start();
-	masterNode = new Node();
-}
-
-function textPrintNodes(node, depth){
-	if(node == undefined || node == null){
-		return;
-	}
-	while(depth > 0){
-		document.body.appendChild(document.createTextNode('\u00A0\u00A0\u00A0\u00A0'));
-		depth = depth - 1;
-	}
-	if(node.type === 'leaf'){
-		document.body.appendChild(document.createTextNode(node.text));
-	}
-	else{
-		document.body.appendChild(document.createTextNode(node.type));
-	}
-	document.body.appendChild(document.createElement('br'));
-	if(node.subs != null){
-		node.subs.forEach(function(item, index, array) {
-		textPrintNodes(item, depth + 1);
-		});
-	}
 }
 
 var myCanvas = {
@@ -397,7 +403,7 @@ function repaintAll() {
 }
 
 function clearNodes(){
-	masterNode = new Node();
+	masterNode = null;
 	repaintAll();
 }
 
@@ -408,7 +414,7 @@ var dualDemo = {
 		repaintAll();
 	},
 	hNext : function() {
-		if (masterNode.type == null){
+		if (masterNode == null){
 			dualDemo.start();
 			return;
 		}
@@ -425,7 +431,7 @@ var dualDemo = {
 		repaintAll();
 	},
 	vNext : function() {
-		if (masterNode.type == null){
+		if (masterNode == null){
 			dualDemo.start();
 			return;
 		}
@@ -462,15 +468,14 @@ function toggleCentreMark(){
 
 function toLatex(){
   if(masterNode == null) return '';
-  else if(masterNode.type === 'leaf') return '\\od{' + masterNode.text + '}';
-  else if(masterNode.type === 'vjoin') return masterNode.getLatex();
-  else if(masterNode.subs.length < 1) return '';
-  else if(masterNode.subs.length === 1) return '\\od{' + masterNode.subs[0].text + '}';
-  else return 'This type is not currently supported';
+  else{
+    let test = masterNode.getLatex();
+    if(test == undefined) throw new Error('This type is not currently supported');
+    else return test;
+  }
 }
 
 function showLatex(){
-  document.getElementById("latexOutput").innerHTML = '';
   var text = toLatex();
   if(text == null) text = '';
   document.getElementById("latexOutput").innerHTML = text;
@@ -482,11 +487,62 @@ function unicodeToHTML5(unicode){
   return unicode.replace('U+', '&#x');
 }
 
+// Unicode aliases to return codepoints for use in plain HTML5
+function getUnicodeHTML(name){
+  return '&#x' + getUnicodeHex(name);
+}
+
+// Unicode aliases to return codepoints for use in Javascript (i.e. the canvas)
+function getUnicodeChar(name){
+  return String.fromCharCode(parseInt(getUnicodeHex(name), 16))
+}
+
+function getUnicodeHex(name){
+  switch(name){
+    case 'log_and':
+      return '2227';
+    case 'log_or':
+      return '2228';
+    case 'log_not':
+      return '00AC';
+    case 'psi_lower':
+      return '03C8';
+    case 'right_arrow':
+      return '2192';
+    case 'left_arrow':
+      return '2190';
+    case 'left_right_arrow':
+      return '2194';
+    default:
+      return null;
+  }
+}
+
+function getUnicodeLatex(name){
+  switch(name){
+    case 'log_and':
+      return '\\vlan';
+    case 'log_or':
+      return '\\vlor';
+    case 'log_not':
+      return '\\vlne';
+    case 'psi_lower':
+      return '\\psi';
+    case 'right_arrow':
+      return '\\vlim';
+    case 'left_arrow':
+      return '\\vlmi';
+    case 'left_right_arrow':
+      return '\\vldi';
+    default:
+      return null;
+  }
+}
+
 </script>
 <br><br>
 <button onclick="repaintAll()">Repaint</button>
 <button onclick="myCanvas.clear()">Clear</button>
-<button onclick="textPrintNodes(masterNode, 0)">textPrintNodes</button>
 <button onclick="toggleCentreMark()">toggle crossHairs</button>
 <button onclick="clearNodes()">reset demo</button>
 <button onclick="dualDemo.hNext()">demo add H</button>
