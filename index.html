@@ -343,7 +343,15 @@ class vjoin extends Node{
 			top += item.getHeight(ctx);
 			if(this.subs.indexOf(item) < this.subs.length - 1){
 				top += this.vspace;
-				this.vcons.push(new HLine(maxWidth, 'single_solid'));
+        if(this.vcons.length % 3 === 0){
+          this.vcons.push(new HLine(maxWidth, 'single_solid'));
+        }
+        else if(this.vcons.length % 3 === 1){
+          this.vcons.push(new HLine(maxWidth, 'single_dotted'));
+        }
+        else{
+          this.vcons.push(new HLine(maxWidth, 'double_solid'));
+        }
 				this.vcons[this.vcons.length - 1].stage(ctx, x, top);
 				top += this.vcons[this.vcons.length - 1].getHeight(ctx);
 				top += this.vspace;
@@ -419,15 +427,29 @@ var dualDemo = {
 			return;
 		}
 		if(this.n == undefined) this.n = 1;
-		if(masterNode.type === 'hjoin'){
-			masterNode.addRight(new TextLeaf(this.n++));
-		}
-		else{
-			var newMaster = new hjoin();
-			newMaster.addLeft(masterNode);
-			newMaster.addRight(new TextLeaf(this.n++));
-			masterNode = newMaster;
-		}
+    if(this.n === 18){
+      if(masterNode.type === 'hjoin'){
+        masterNode.addRight(new IncludedUnicodeLeaf('psi_lower'));
+      }
+      else{
+        var newMaster = new hjoin();
+        newMaster.addLeft(masterNode);
+        newMaster.addRight(new IncludedUnicodeLeaf('psi_lower'));
+        masterNode = newMaster;
+      }
+      this.n++;
+    }
+    else{
+      if(masterNode.type === 'hjoin'){
+        masterNode.addRight(new TextLeaf(this.n++));
+      }
+      else{
+        var newMaster = new hjoin();
+        newMaster.addLeft(masterNode);
+        newMaster.addRight(new TextLeaf(this.n++));
+        masterNode = newMaster;
+      }
+    }
 		repaintAll();
 	},
 	vNext : function() {
