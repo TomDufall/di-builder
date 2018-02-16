@@ -21,6 +21,10 @@ canvas {
 
   <body onload = "startScript()">
 
+  <canvas id="canvas" style="border:1px solid #000000;">
+    Your browser does not support the HTML5 canvas tag which is necessary to use this site.
+  </canvas>
+  <br>
 
 <script>
 
@@ -377,13 +381,11 @@ function startScript(){
 }
 
 var myCanvas = {
-    canvas : document.createElement("canvas"),
+    canvas : document.getElementById("canvas"),
     start : function() {
         this.canvas.width = 480;
         this.canvas.height = 270;
         this.context = this.canvas.getContext("2d");
-        document.body.insertBefore(this.canvas, document.body.childNodes[0]);
-		document.body.appendChild(document.createElement('br'))
 //		window.addEventListener('keydown', function(e){keyMove(e.keyCode);});
 //		this.interval = setInterval(updateCanvas, (1000/30));
     },
@@ -540,7 +542,7 @@ function getUnicodeLatex(name){
 }
 
 </script>
-<br><br>
+
 <button onclick="repaintAll()">Repaint</button>
 <button onclick="myCanvas.clear()">Clear</button>
 <button onclick="toggleCentreMark()">toggle crossHairs</button>
