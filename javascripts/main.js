@@ -351,14 +351,23 @@ function startScript(){
 var myCanvas = {
     canvas : document.getElementById("canvas"),
     start : function() {
-        this.canvas.width = 480;
-        this.canvas.height = 270;
-        this.context = this.canvas.getContext("2d");
+			this.context = this.canvas.getContext("2d");
+			window.addEventListener('resize', myCanvas.resize);
+			this.resize();
 //		window.addEventListener('keydown', function(e){keyMove(e.keyCode);});
 //		this.interval = setInterval(updateCanvas, (1000/30));
     },
 	clear : function(){
 		this.context.clearRect(0,0, this.canvas.width, this.canvas.height);
+	},
+	resize : function(){
+		let newWidth = Math.max(window.innerWidth, 500);
+		//let newHeight = window.innerHeight;
+		let newHeight = Math.max(0, 300);
+		console.log('resizing to ' + newWidth + ', ' + newHeight);
+		this.canvas.width = newWidth;
+		this.canvas.height = newHeight;
+		repaintAll();
 	}
 }
 
@@ -366,7 +375,7 @@ function repaintAll() {
     myCanvas.clear();
 	myCanvas.context.textBaseline = 'middle';
 	if(masterNode != null){
-		masterNode.stage(myCanvas.context, 240, 135);
+		masterNode.stage(myCanvas.context, myCanvas.canvas.width/2, myCanvas.canvas.height/2);
 		masterNode.repaint();
 	}
 	if(doDrawCentreMark) drawCentreMark(myCanvas.context);
