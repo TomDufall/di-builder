@@ -65,7 +65,7 @@ class UnicodeLeaf extends TextLeaf{
 
 class IncludedUnicodeLeaf extends UnicodeLeaf{
   constructor(key){
-    super(getUnicodeChar(key), getUnicodeLatex(key));
+    super(getUnicodeChar(key), nameToUnicodeLatexMap.get(key));
   }
 }
 
@@ -105,7 +105,7 @@ class HLine extends VCon{
 		return this.lineWidth;
 	}
 	getHeight(){
-    var height = 0;
+    let height = 0;
     switch(this.lineType){
       case 'single_solid':
       case 'single_dotted':
@@ -136,9 +136,8 @@ class HLine extends VCon{
         this.ctx.lineTo(this.x + this.lineWidth/2, this.y);
         break;
       case 'single_dotted':
-        var x;
         const dashLength = 3;
-        for(x = this.x - this.lineWidth/2; x < this.x + this.lineWidth/2; x += 2 * dashLength){
+        for(let x = this.x - this.lineWidth/2; x < this.x + this.lineWidth/2; x += 2 * dashLength){
           this.ctx.moveTo(x, this.y);
           if(x + dashLength > this.x + this.lineWidth/2){
             this.ctx.lineTo(this.x + this.lineWidth/2, this.y);
@@ -220,14 +219,14 @@ class hjoin extends Node{
 		this.addNext(node);
 	}
 	getHeight(ctx){
-		var maxHeight = 0;
+		let maxHeight = 0;
 		this.subs.forEach(function(item, index, array) {
 			if(item.getHeight(ctx) > maxHeight) maxHeight = item.getHeight(ctx);
 		});
 		return maxHeight;
 	}
 	getWidth(ctx){
-		var totalWidth = 0;
+		let totalWidth = 0;
 		this.subs.forEach(function(item, index, array) {
 			totalWidth += item.getWidth(ctx);
 		});
@@ -241,13 +240,13 @@ class hjoin extends Node{
 		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
-		var left = x - this.getWidth(ctx)/2;
+		let left = x - this.getWidth(ctx)/2;
 		for (let item of this.subs) {
 			item.stage(ctx, left + item.getWidth(ctx)/2, y);
 			left += item.getWidth(ctx);
 			left += this.hspace;
 			if(this.subs.indexOf(item) < this.subs.length - 1){
-				var con = this.connectives[this.subs.indexOf(item)];
+				let con = this.connectives[this.subs.indexOf(item)];
 				con.stage(ctx, left + con.getWidth(ctx)/2, y);
 				left += con.getWidth(ctx);
 				left += this.hspace;
@@ -263,7 +262,7 @@ class hjoin extends Node{
 		}
 	}
   getLatex(){
-    var result = '';
+    let result = '';
     for (let item of this.subs){
       result = result + item.getLatex();
       if(this.subs.indexOf(item) < this.subs.length -1){
@@ -287,7 +286,7 @@ class vjoin extends Node{
 		this.addNext(node);
 	}
 	getHeight(ctx){
-		var totalHeight = 0;
+		let totalHeight = 0;
 		for (let item of this.subs){
 			totalHeight += item.getHeight(ctx);
 		}
@@ -298,7 +297,7 @@ class vjoin extends Node{
 		return totalHeight;
 	}
 	getWidth(ctx){
-		var maxWidth = 0;
+		let maxWidth = 0;
 		this.subs.forEach(function(item, index, array) {
 			if(item.getWidth(ctx) > maxWidth) maxWidth = item.getWidth(ctx);
 		});
@@ -306,11 +305,11 @@ class vjoin extends Node{
 		// TO DO - vertical joins with minimum widths (e.g. subscript letters on side of line)
 	}
 	stage(ctx, x, y){
-		var maxWidth = this.getWidth(ctx);
+		const maxWidth = this.getWidth(ctx);
 		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
-		var top = y - this.getHeight(ctx)/2;
+		let top = y - this.getHeight(ctx)/2;
 		this.vcons = [];
 		for (let item of this.subs) {
 			item.stage(ctx, x, top + item.getHeight(ctx)/2);
@@ -335,10 +334,9 @@ class vjoin extends Node{
   getLatex(){
     if(this.subs.length < 1) return '';
     else if(this.subs.length === 1) return '\\od{' + this.subs[0].getLatex() + '}';
-    var latex = '\\odh{' + this.subs[0].getLatex() + '}';
-    var i;
-    for(i = 1; i < this.subs.length; i++){
-      var con = this.vcons[i-1];
+    let latex = '\\odh{' + this.subs[0].getLatex() + '}';
+    for(let i = 1; i < this.subs.length; i++){
+      let con = this.vcons[i-1];
       latex = con.getLatexPrefix() + '{' + latex + '}{' + con.getLatexLeft() + '}{' + this.subs[i].text + '}{' + con.getLatexRight() + '}';
     }
     latex = '\\od{' + latex + '}';
@@ -395,7 +393,7 @@ var dualDemo = {
 			masterNode.addRight(new TextLeaf(this.n++));
 		}
 		else{
-			var newMaster = new hjoin();
+			const newMaster = new hjoin();
 			newMaster.addLeft(masterNode);
 			newMaster.addRight(new TextLeaf(this.n++));
 			masterNode = newMaster;
@@ -448,9 +446,13 @@ function toLatex(){
 }
 
 function showLatex(){
-  var text = toLatex();
-  if(text == null) text = '';
-  document.getElementById("latexOutput").innerHTML = text;
+  const text = toLatex();
+  if(text == null){
+		document.getElementById("latexOutput").innerHTML = '';
+	}
+	else{
+		document.getElementById("latexOutput").innerHTML = text;
+	}
 }
 
 function unicodeToHTML5(unicode){
@@ -461,52 +463,34 @@ function unicodeToHTML5(unicode){
 
 // Unicode aliases to return codepoints for use in plain HTML5
 function getUnicodeHTML(name){
-  return '&#x' + getUnicodeHex(name);
+  return '&#x' + nameToUnicodeHexMap.get(name);
 }
 
 // Unicode aliases to return codepoints for use in Javascript (i.e. the canvas)
 function getUnicodeChar(name){
-  return String.fromCharCode(parseInt(getUnicodeHex(name), 16))
+  return String.fromCharCode(parseInt(nameToUnicodeHexMap.get(name), 16))
 }
 
-function getUnicodeHex(name){
-  switch(name){
-    case 'log_and':
-      return '2227';
-    case 'log_or':
-      return '2228';
-    case 'log_not':
-      return '00AC';
-    case 'psi_lower':
-      return '03C8';
-    case 'right_arrow':
-      return '2192';
-    case 'left_arrow':
-      return '2190';
-    case 'left_right_arrow':
-      return '2194';
-    default:
-      return null;
-  }
-}
+const nameToUnicodeHexMap = new Map(
+	new Array(
+		['log_and', '2227'],
+		['log_or', '2228'],
+		['log_not', '00AC'],
+		['psi_lower', '03C8'],
+		['right_arrow', '2192'],
+		['left_arrow', '2190'],
+		['left_right_arrow', '2194']
+	)
+);
 
-function getUnicodeLatex(name){
-  switch(name){
-    case 'log_and':
-      return '\\vlan';
-    case 'log_or':
-      return '\\vlor';
-    case 'log_not':
-      return '\\vlne';
-    case 'psi_lower':
-      return '\\psi';
-    case 'right_arrow':
-      return '\\vlim';
-    case 'left_arrow':
-      return '\\vlmi';
-    case 'left_right_arrow':
-      return '\\vldi';
-    default:
-      return null;
-  }
-}
+const nameToUnicodeLatexMap = new Map(
+	new Array(
+		['log_and', '\\vlan'],
+		['log_or', '\\vlor'],
+		['log_not', '\\vlne'],
+		['psi_lower', '\\psi'],
+		['right_arrow', '\\vlim'],
+		['left_arrow', '\\vlmi'],
+		['left_right_arrow', '\\vldi']
+	)
+);
