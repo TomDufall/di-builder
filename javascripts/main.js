@@ -1,9 +1,52 @@
+// debug mode active
+const DEBUG = true;
+// root node of tree
 var masterNode;
+// should the centre mark (crosshairs) be drawn?
 var doDrawCentreMark = false;
+// elements currently selected for editing
+var selectedLeaf;
+var selectedNode;
+//------------------------------------------------
+// DEFAULT STYLES/TEXTS
+// default text for text leaves - filled star
+const DEFAULT_SYMBOL = 'black_star';
+// default text for horizontal joins - logical AND
+const DEFAULT_HCON = 'log_and';
+// colour to hightlight items when clicked
+const HIGHLIGHT_COLOUR = "#0000FF";
 
 class Leaf{
 	constructor(type){
 		this.type = type;
+		this.selected = false;
+	}
+	setSelected(bool){
+		// set whether the element is currently selected
+		this.selected = bool;
+	}
+	printCoords(){
+		// debug function to print x/y values
+		console.log(this.x);
+		console.log(this.y);
+	}
+	printIdentifier(){
+		// debug function to print name/helpful info
+		if(this.text){
+			console.log(this.text + ' clicked');
+		}
+		else{
+			console.log(this.type + ' clicked');
+		}
+	}
+	traceClick(ctx, clickX, clickY){
+		// test if node clicked
+		if(clickX <= this.x + this.getWidth(ctx)/2 && clickX >= this.x - this.getWidth(ctx)/2 && clickY <= this.y + this.getHeight(ctx)/2 && clickY >= this.y - this.getHeight(ctx)/2){
+			// select element and return true
+			selectLeaf(this);
+			return true;
+		}
+		return false;
 	}
 	stage(){
 		throw new Error('Call to abstract function');
@@ -45,11 +88,23 @@ class TextLeaf extends Leaf{
 			console.log('Leaf painting error: null context, x, or y');
 		}
 		this.ctx.font = "20px arial";
-		//	ctx.fillStyle="#0000FF";
+		if(this.selected){
+			var colour = this.ctx.fillStyle;
+			this.ctx.fillStyle = HIGHLIGHT_COLOUR;
+		}
 		this.ctx.fillText(this.text, this.x - this.width/2, this.y);
+		if(this.selected){
+			this.ctx.fillStyle = colour;
+		}
 	}
   getLatex(){
-    return this.text;
+		// If a latex alternative exists, use it, else use text
+		if(this.latex){
+			return this.latex;
+		}
+		else{
+			return this.text;
+		}
   }
 }
 
@@ -58,13 +113,10 @@ class UnicodeLeaf extends TextLeaf{
     super(canvasText);
     this.latex = latexCode;
   }
-  getLatex(){
-    return this.latex;
-  }
 }
 
 class IncludedUnicodeLeaf extends UnicodeLeaf{
-  constructor(key){
+  constructor(key=DEFAULT_SYMBOL){
     super(getUnicodeChar(key), nameToUnicodeLatexMap.get(key));
   }
 }
@@ -88,9 +140,9 @@ class VCon extends Leaf{
 }
 
 class HLine extends VCon{
-	constructor(lineWidth, lineType){
+	constructor(lineType){
 		super('hline');
-		this.lineWidth = lineWidth;
+		this.lineWidth = 0;
 		this.lineType = lineType;
 
 	}
@@ -128,7 +180,10 @@ class HLine extends VCon{
 		this.y = y;
 	}
 	repaint(){
-  	this.ctx.strokeStyle = '#000000';
+		if(this.selected){
+			var colour = this.ctx.strokeStyle;
+			this.ctx.strokeStyle = HIGHLIGHT_COLOUR;
+		}
     this.ctx.beginPath();
     switch(this.lineType){
       case 'single_solid':
@@ -158,6 +213,9 @@ class HLine extends VCon{
         throw new Error('Cannot draw line - line type not set');
     }
     this.ctx.stroke();
+		if(this.selected){
+			this.ctx.strokeStyle = colour;
+		}
 	}
   getLatexPrefix(){
     switch(this.lineType){
@@ -173,22 +231,36 @@ class HLine extends VCon{
   }
 }
 
-class defaultHCon extends IncludedUnicodeLeaf{
-	constructor(){
-		super('log_and');
-	}
-}
-
 class Node extends Leaf{
 	constructor(type){
 		super(type);
 		this.subs = [];
+		this.connectives = [];
 	}
 	addNext(node){
 		this.subs.push(node);
 	}
 	addPrev(node){
 		this.subs.unshift(node);
+	}
+	traceClick(ctx, clickX, clickY){
+		// test if node clicked
+		if(clickX <= this.x + this.getWidth(ctx)/2 && clickX >= this.x - this.getWidth(ctx)/2 && clickY <= this.y + this.getHeight(ctx)/2 && clickY >= this.y - this.getHeight(ctx)/2){
+			// select element then test if sub-elements selected
+			selectNode(this);
+			if(this.subs){
+				for(let item of this.subs) {
+					item.traceClick(ctx, clickX, clickY);
+				}
+			}
+			if(this.connectives){
+				for(let item of this.connectives){
+					item.traceClick(ctx, clickX, clickY);
+				}
+			}
+			return true;
+		}
+		return false;
 	}
 	stage(ctx, x, y){
 		console.log('Warning: relying on generic node class function');
@@ -211,11 +283,11 @@ class hjoin extends Node{
 		this.connectives = [];
 	}
 	addLeft(node){
-		if(this.subs.length !== 0) this.connectives.unshift(new defaultHCon());
+		if(this.subs.length !== 0) this.connectives.unshift(new IncludedUnicodeLeaf(DEFAULT_HCON));
 		this.addPrev(node);
 	}
 	addRight(node){
-		if(this.subs.length !== 0) this.connectives.push(new defaultHCon());
+		if(this.subs.length !== 0) this.connectives.push(new IncludedUnicodeLeaf(DEFAULT_HCON));
 		this.addNext(node);
 	}
 	getHeight(ctx){
@@ -277,12 +349,14 @@ class vjoin extends Node{
 	constructor(){
 		super('vjoin');
 		this.vspace = 2;
-		this.vcons = [];
+		this.connectives = [];
 	}
 	addAbove(node){
+		if(this.subs.length !== 0) this.connectives.unshift(new HLine('single_solid'));
 		this.addPrev(node);
 	}
 	addBelow(node){
+		if(this.subs.length !== 0) this.connectives.push(new HLine('single_solid'));
 		this.addNext(node);
 	}
 	getHeight(ctx){
@@ -290,7 +364,7 @@ class vjoin extends Node{
 		for (let item of this.subs){
 			totalHeight += item.getHeight(ctx);
 		}
-		for (let item of this.vcons){
+		for (let item of this.connectives){
 			totalHeight += item.getHeight(ctx);
 			totalHeight += 2 * this.vspace;
 		}
@@ -304,21 +378,40 @@ class vjoin extends Node{
 		return maxWidth;
 		// TO DO - vertical joins with minimum widths (e.g. subscript letters on side of line)
 	}
+	stageold(ctx, x, y){
+		const maxWidth = this.getWidth(ctx);
+		this.ctx = ctx;
+		this.x = x;
+		this.y = y;
+		let top = y - this.getHeight(ctx)/2;
+		this.connectives = [];
+		for (let item of this.subs) {
+			item.stage(ctx, x, top + item.getHeight(ctx)/2);
+			top += item.getHeight(ctx);
+			if(this.subs.indexOf(item) < this.subs.length - 1){
+				top += this.vspace;
+				this.connectives.push(new HLine(maxWidth, 'single_solid'));
+				this.connectives[this.connectives.length - 1].stage(ctx, x, top);
+				top += this.connectives[this.connectives.length - 1].getHeight(ctx);
+				top += this.vspace;
+			}
+		}
+	}
 	stage(ctx, x, y){
 		const maxWidth = this.getWidth(ctx);
 		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
 		let top = y - this.getHeight(ctx)/2;
-		this.vcons = [];
 		for (let item of this.subs) {
 			item.stage(ctx, x, top + item.getHeight(ctx)/2);
 			top += item.getHeight(ctx);
+			top += this.vspace;
 			if(this.subs.indexOf(item) < this.subs.length - 1){
-				top += this.vspace;
-				this.vcons.push(new HLine(maxWidth, 'single_solid'));
-				this.vcons[this.vcons.length - 1].stage(ctx, x, top);
-				top += this.vcons[this.vcons.length - 1].getHeight(ctx);
+				let con = this.connectives[this.subs.indexOf(item)];
+				con.setLineWidth(maxWidth);
+				con.stage(ctx, x, top);
+				top += con.getHeight(ctx);
 				top += this.vspace;
 			}
 		};
@@ -327,7 +420,7 @@ class vjoin extends Node{
 		for(let item of this.subs){
 			item.repaint();
 		}
-		for(let item of this.vcons){
+		for(let item of this.connectives){
 			item.repaint();
 		}
 	}
@@ -336,7 +429,7 @@ class vjoin extends Node{
     else if(this.subs.length === 1) return '\\od{' + this.subs[0].getLatex() + '}';
     let latex = '\\odh{' + this.subs[0].getLatex() + '}';
     for(let i = 1; i < this.subs.length; i++){
-      let con = this.vcons[i-1];
+      let con = this.connectives[i-1];
       latex = con.getLatexPrefix() + '{' + latex + '}{' + con.getLatexLeft() + '}{' + this.subs[i].text + '}{' + con.getLatexRight() + '}';
     }
     latex = '\\od{' + latex + '}';
@@ -349,14 +442,17 @@ function startScript(){
 }
 
 var myCanvas = {
-    canvas : document.getElementById("canvas"),
-    start : function() {
-			this.context = this.canvas.getContext("2d");
-			window.addEventListener('resize', myCanvas.resize);
-			this.resize();
-//		window.addEventListener('keydown', function(e){keyMove(e.keyCode);});
-//		this.interval = setInterval(updateCanvas, (1000/30));
-    },
+  canvas : document.getElementById("canvas"),
+  start : function() {
+		this.context = this.canvas.getContext("2d");
+		window.addEventListener('resize', myCanvas.resize);
+		this.resize();
+		this.reset();
+  },
+	reset : function(){
+		masterNode = new IncludedUnicodeLeaf();
+		repaintAll();
+	},
 	clear : function(){
 		this.context.clearRect(0,0, this.canvas.width, this.canvas.height);
 	},
@@ -364,11 +460,72 @@ var myCanvas = {
 		let newWidth = Math.max(window.innerWidth, 500);
 		//let newHeight = window.innerHeight;
 		let newHeight = Math.max(0, 300);
-		console.log('resizing to ' + newWidth + ', ' + newHeight);
 		this.canvas.width = newWidth;
 		this.canvas.height = newHeight;
 		repaintAll();
+	},
+	traceClick : function(event){
+		// convert from page coordinates to canvas coordinates
+		const x = event.pageX - this.canvas.offsetLeft;
+		const y = event.pageY - this.canvas.offsetTop;
+		// clear selected leaf/node
+		unselectAll();
+		if(masterNode) masterNode.traceClick(this.context, x, y);
+		repaintAll();
 	}
+}
+
+function unselectAll(){
+	unselectLeaf();
+	unselectNode();
+}
+
+function selectLeaf(item){
+	unselectLeaf();
+	selectedLeaf = item;
+	item.setSelected(true);
+	if(selectedLeaf.text){
+		let textBox = document.getElementById('textBox');
+		if(selectedLeaf.text === getUnicodeChar(DEFAULT_SYMBOL)){
+			textBox.value = '';
+		}
+		else{
+			textBox.value = selectedLeaf.text;
+		}
+		textBox.disabled = false;
+		// set focus to text box for quick editing
+		textBox.focus();
+	}
+}
+
+function unselectLeaf(){
+	// if 'selected' is non-null, unselect
+	if(selectedLeaf){
+		selectedLeaf.setSelected(false);
+		let textBox = document.getElementById('textBox');
+		textBox.disabled = true;
+		textBox.value = '';
+	}
+	selectedLeaf = null;
+}
+
+function selectNode(item){
+	unselectNode();
+	selectedNode = item;
+	item.setSelected(true);
+}
+
+function unselectNode(){
+	// if 'selected' is non-null, unselect
+	if(selectedNode){
+		selectedNode.setSelected(false);
+	}
+	selectedNode = null;
+}
+
+function printSelected(){
+	console.log(selectedLeaf);
+	console.log(selectedNode);
 }
 
 function repaintAll() {
@@ -407,6 +564,7 @@ var dualDemo = {
 			newMaster.addRight(new TextLeaf(this.n++));
 			masterNode = newMaster;
 		}
+		unselectAll();
 		repaintAll();
 	},
 	vNext : function() {
@@ -424,6 +582,79 @@ var dualDemo = {
 			newMaster.addBelow(new TextLeaf(this.n++));
 			masterNode = newMaster;
 		}
+		unselectAll();
+		repaintAll();
+	}
+}
+
+var leafActions = {
+	textBoxInput : function(textBox){
+		// if currently selected element is text, update
+		if(selectedLeaf.text){
+			if(textBox.value){
+				selectedLeaf.text = textBox.value;
+				selectedLeaf.latex = '';
+			}
+			else{
+				selectedLeaf.text = getUnicodeChar(DEFAULT_SYMBOL);
+				selectedLeaf.latex = nameToUnicodeLatexMap.get(DEFAULT_SYMBOL);
+			}
+		}
+		repaintAll();
+	},
+	delete : function(){
+		alert('Not yet implemented');
+	},
+	addAbove : function(){
+		// If leaf selected but no node, node must be master node
+		if(selectedLeaf && !selectedNode){
+			masterNode = new vjoin();
+			masterNode.addAbove(new IncludedUnicodeLeaf());
+			masterNode.addBelow(selectedLeaf);
+		}
+		else{
+			alert('Not yet fully implemented');
+		}
+		unselectAll();
+		repaintAll();
+	},
+	addBelow : function(){
+		// If leaf selected but no node, node must be master node
+		if(selectedLeaf && !selectedNode){
+			masterNode = new vjoin();
+			masterNode.addAbove(selectedLeaf);
+			masterNode.addBelow(new IncludedUnicodeLeaf());
+		}
+		else{
+			alert('Not yet fully implemented');
+		}
+		unselectAll();
+		repaintAll();
+	},
+	addLeft : function(){
+		// If leaf selected but no node, node must be master node
+		if(selectedLeaf && !selectedNode){
+			masterNode = new hjoin();
+			masterNode.addLeft(new IncludedUnicodeLeaf());
+			masterNode.addRight(selectedLeaf);
+		}
+		else{
+			alert('Not yet fully implemented');
+		}
+		unselectAll();
+		repaintAll();
+	},
+	addRight : function(){
+		// If leaf selected but no node, node must be master node
+		if(selectedLeaf && !selectedNode){
+			masterNode = new hjoin();
+			masterNode.addLeft(selectedLeaf);
+			masterNode.addRight(new IncludedUnicodeLeaf());
+		}
+		else{
+			alert('Not yet fully implemented');
+		}
+		unselectAll();
 		repaintAll();
 	}
 }
@@ -456,11 +687,8 @@ function toLatex(){
 
 function showLatex(){
   const text = toLatex();
-  if(text == null){
-		document.getElementById("latexOutput").innerHTML = '';
-	}
-	else{
-		document.getElementById("latexOutput").innerHTML = text;
+	if(text){
+		window.prompt('Copy the LaTeX markup below and paste it into your LaTeX editor.\nMake sure to include the Virginia Lake package.', text);
 	}
 }
 
@@ -488,7 +716,8 @@ const nameToUnicodeHexMap = new Map(
 		['psi_lower', '03C8'],
 		['right_arrow', '2192'],
 		['left_arrow', '2190'],
-		['left_right_arrow', '2194']
+		['left_right_arrow', '2194'],
+		['black_star', '2605']
 	)
 );
 
@@ -500,6 +729,7 @@ const nameToUnicodeLatexMap = new Map(
 		['psi_lower', '\\psi'],
 		['right_arrow', '\\vlim'],
 		['left_arrow', '\\vlmi'],
-		['left_right_arrow', '\\vldi']
+		['left_right_arrow', '\\vldi'],
+		['black_star', '\\bigstar']
 	)
 );
