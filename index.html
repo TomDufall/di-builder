@@ -20,22 +20,35 @@
   </head>
 
   <body onload = "startScript()">
-
-    <canvas id="canvas" style="border:1px solid #000000;">
+    <canvas id="canvas" style="border:1px solid #000000;" onclick="myCanvas.traceClick(event)">
       Your browser does not support the HTML5 canvas tag which is necessary to use this site.
     </canvas>
     <br>
     <script src="javascripts/main.js" type="text/javascript"></script>
 
-    <button onclick="repaintAll()">Repaint</button>
-    <button onclick="myCanvas.clear()">Clear</button>
-    <button onclick="toggleCentreMark()">toggle crossHairs</button>
-    <button onclick="clearNodes()">reset demo</button>
-    <button onclick="dualDemo.hNext()">demo add H</button>
-    <button onclick="dualDemo.vNext()">demo add V</button>
+    <div style = "text-align: center;">
+      <input type="text" id="textBox" size="2" oninput="leafActions.textBoxInput(this)" autocomplete="off" disabled="true">
+      <button onclick="leafActions.delete()">Delete &#x267B</button>
+      <button onclick="leafActions.addAbove()">Add above &#x1F869</button>
+      <button onclick="leafActions.addBelow()">Add below &#x1F86B</button>
+      <button onclick="leafActions.addLeft()">Add left &#x1F868</button>
+      <button onclick="leafActions.addRight()">Add right &#x1F86A</button>
+    </div>
     <br>
-    <button onclick="showLatex()">Generate LaTeX</button>
+    <div style = "text-align: center;">
+      <button onclick="printSelected()">Print selected</button>
+      <button onclick="myCanvas.reset()">Reset</button>
+    </div>
     <br>
-    <code><p style="color:White;" id="latexOutput"></p></code>
+    <div style = "text-align: center;">
+      <button onclick="repaintAll()">Repaint</button>
+      <button onclick="myCanvas.clear()">Clear</button>
+      <button onclick="toggleCentreMark()">toggle crossHairs</button>
+      <button onclick="clearNodes()">reset demo</button>
+      <button onclick="dualDemo.hNext()">demo add H</button>
+      <button onclick="dualDemo.vNext()">demo add V</button>
+      <br>
+      <button onclick="showLatex()">Generate LaTeX</button>
+    </div>
   </body>
 </html>
