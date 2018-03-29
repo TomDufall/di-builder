@@ -243,6 +243,53 @@ class Node extends Leaf{
 	addPrev(node){
 		this.subs.unshift(node);
 	}
+	traceReplace(oldNode, newNode){
+		for(let item of this.subs){
+			if(item === oldNode){
+				this.subs.splice(this.subs.indexOf(oldNode), 1, newNode);
+				return;
+			}
+		}
+		for(let item of this.subs){
+			if(item.type === 'vjoin' || item.type === 'hjoin'){
+				item.traceReplace();
+			}
+		}
+	}
+	traceRemove(node){
+		for(let item of this.subs){
+			if(item === node){
+				// unsafe edge cases
+				if(!node) return;
+				if(this.subs.length === 0) return;
+				// find element to remove
+				let index = this.subs.indexOf(node);
+				// remove element
+				this.subs.splice(index, 1);
+				// remove connective if necessary - remove from before element unless at front
+				if(index === 0 && this.connectives.length !== 0){
+					this.connectives.shift();
+				}
+				else if(index !== 0){
+					this.connectives.splice(index - 1, 1);
+				}
+				if(this.subs.length === 0){
+					if(masterNode === this){
+						masterNode = new IncludedUnicodeLeaf();
+					}
+					else{
+						masterNode.traceRemove(this);
+					}
+				}
+				return;
+			}
+		}
+		for(let item of this.subs){
+			if(item.type === 'vjoin' || item.type === 'hjoin'){
+				item.traceRemove(node);
+			}
+		}
+	}
 	traceClick(ctx, clickX, clickY){
 		// test if node clicked
 		if(clickX <= this.x + this.getWidth(ctx)/2 && clickX >= this.x - this.getWidth(ctx)/2 && clickY <= this.y + this.getHeight(ctx)/2 && clickY >= this.y - this.getHeight(ctx)/2){
@@ -282,13 +329,27 @@ class hjoin extends Node{
 		this.hspace = 5;
 		this.connectives = [];
 	}
-	addLeft(node){
-		if(this.subs.length !== 0) this.connectives.unshift(new IncludedUnicodeLeaf(DEFAULT_HCON));
-		this.addPrev(node);
+	// add node left of the given node or at the very left if unspecified
+	addLeft(node, ref){
+		// if unspecified, add at very left, else find index to insert before
+		let index = 0;
+		if(ref != null){
+			index = this.subs.indexOf(ref);
+		}
+		// if no other nodes, no connective needed, else add connective after
+		if(this.subs.length !== 0) this.connectives.splice(index, 0, new IncludedUnicodeLeaf(DEFAULT_HCON));
+		this.subs.splice(index, 0, node);
 	}
-	addRight(node){
-		if(this.subs.length !== 0) this.connectives.push(new IncludedUnicodeLeaf(DEFAULT_HCON));
-		this.addNext(node);
+	// add node to right of the given node or at the very right if unspecified
+	addRight(node, ref){
+		// if unspecified, add at very right, else find index to insert after
+		let index = this.subs.length - 1;
+		if(ref != null){
+			index = this.subs.indexOf(ref);
+		}
+		// if no other nodes, no connective needed, else add connective before
+		if(this.subs.length !== 0) this.connectives.splice(index + 1, 0, new IncludedUnicodeLeaf(DEFAULT_HCON));
+		this.subs.splice(index + 1, 0, node);
 	}
 	getHeight(ctx){
 		let maxHeight = 0;
@@ -351,13 +412,27 @@ class vjoin extends Node{
 		this.vspace = 2;
 		this.connectives = [];
 	}
-	addAbove(node){
-		if(this.subs.length !== 0) this.connectives.unshift(new HLine('single_solid'));
-		this.addPrev(node);
+	// add node above the given node or at the top if unspecified
+	addAbove(node, ref){
+		// if unspecified, add at top, else find index to insert above
+		let index = 0;
+		if(ref != null){
+			index = this.subs.indexOf(ref);
+		}
+		// if no other nodes, no connective needed, else add connective after
+		if(this.subs.length !== 0) this.connectives.splice(index, 0, new HLine('single_solid'));
+		this.subs.splice(index, 0, node);
 	}
-	addBelow(node){
-		if(this.subs.length !== 0) this.connectives.push(new HLine('single_solid'));
-		this.addNext(node);
+	// add node below the given node or at the bottom if unspecified
+	addBelow(node, ref){
+		// if unspecified, add at bottom, else find index to insert below
+		let index = this.subs.length - 1;
+		if(ref != null){
+			index = this.subs.indexOf(ref);
+		}
+		// if no other nodes, no connective needed, else add connective before
+		if(this.subs.length !== 0) this.connectives.splice(index + 1, 0, new HLine('single_solid'));
+		this.subs.splice(index + 1, 0, node);
 	}
 	getHeight(ctx){
 		let totalHeight = 0;
@@ -377,25 +452,6 @@ class vjoin extends Node{
 		});
 		return maxWidth;
 		// TO DO - vertical joins with minimum widths (e.g. subscript letters on side of line)
-	}
-	stageold(ctx, x, y){
-		const maxWidth = this.getWidth(ctx);
-		this.ctx = ctx;
-		this.x = x;
-		this.y = y;
-		let top = y - this.getHeight(ctx)/2;
-		this.connectives = [];
-		for (let item of this.subs) {
-			item.stage(ctx, x, top + item.getHeight(ctx)/2);
-			top += item.getHeight(ctx);
-			if(this.subs.indexOf(item) < this.subs.length - 1){
-				top += this.vspace;
-				this.connectives.push(new HLine(maxWidth, 'single_solid'));
-				this.connectives[this.connectives.length - 1].stage(ctx, x, top);
-				top += this.connectives[this.connectives.length - 1].getHeight(ctx);
-				top += this.vspace;
-			}
-		}
 	}
 	stage(ctx, x, y){
 		const maxWidth = this.getWidth(ctx);
@@ -603,14 +659,32 @@ var leafActions = {
 		repaintAll();
 	},
 	delete : function(){
-		alert('Not yet implemented');
+		masterNode.traceRemove(selectedLeaf);
+		unselectAll();
+		repaintAll();
 	},
 	addAbove : function(){
+		// if no selected leaf, return
+		if(!selectedLeaf){
+			alert('Select a leaf before trying to add an element above it');
+			return;
+		}
 		// If leaf selected but no node, node must be master node
-		if(selectedLeaf && !selectedNode){
+		if(!selectedNode){
 			masterNode = new vjoin();
 			masterNode.addAbove(new IncludedUnicodeLeaf());
 			masterNode.addBelow(selectedLeaf);
+		}
+		// if within a vjoin, find index and add above
+		else if(selectedNode.type === 'vjoin'){
+			selectedNode.addAbove(new IncludedUnicodeLeaf(), selectedLeaf);
+		}
+		// if within a hjoin, insert new vjoin within it preserving existing leaf
+		else if(selectedNode.type === 'hjoin'){
+			let newNode = new vjoin();
+			newNode.addAbove(new IncludedUnicodeLeaf());
+			newNode.addBelow(selectedLeaf);
+			selectedNode.traceReplace(selectedLeaf, newNode);
 		}
 		else{
 			alert('Not yet fully implemented');
@@ -619,11 +693,27 @@ var leafActions = {
 		repaintAll();
 	},
 	addBelow : function(){
+		// if no selected leaf, return
+		if(!selectedLeaf){
+			alert('Select a leaf before trying to add an element below it');
+			return;
+		}
 		// If leaf selected but no node, node must be master node
-		if(selectedLeaf && !selectedNode){
+		if(!selectedNode){
 			masterNode = new vjoin();
-			masterNode.addAbove(selectedLeaf);
 			masterNode.addBelow(new IncludedUnicodeLeaf());
+			masterNode.addAbove(selectedLeaf);
+		}
+		// if within a vjoin, find index and add above
+		else if(selectedNode.type === 'vjoin'){
+			selectedNode.addBelow(new IncludedUnicodeLeaf(), selectedLeaf);
+		}
+		// if within a hjoin, insert new vjoin within it preserving existing leaf
+		else if(selectedNode.type === 'hjoin'){
+			let newNode = new vjoin();
+			newNode.addBelow(new IncludedUnicodeLeaf());
+			newNode.addAbove(selectedLeaf);
+			selectedNode.traceReplace(selectedLeaf, newNode);
 		}
 		else{
 			alert('Not yet fully implemented');
@@ -632,11 +722,27 @@ var leafActions = {
 		repaintAll();
 	},
 	addLeft : function(){
+		// if no selected leaf, return
+		if(!selectedLeaf){
+			alert('Select a leaf before trying to add an element left of it');
+			return;
+		}
 		// If leaf selected but no node, node must be master node
-		if(selectedLeaf && !selectedNode){
+		if(!selectedNode){
 			masterNode = new hjoin();
 			masterNode.addLeft(new IncludedUnicodeLeaf());
 			masterNode.addRight(selectedLeaf);
+		}
+		// if within a hjoin, find index and add to left
+		else if(selectedNode.type === 'hjoin'){
+			selectedNode.addLeft(new IncludedUnicodeLeaf(), selectedLeaf);
+		}
+		// if within a vjoin, insert new hjoin within it preserving existing leaf
+		else if(selectedNode.type === 'vjoin'){
+			let newNode = new hjoin();
+			newNode.addLeft(new IncludedUnicodeLeaf());
+			newNode.addRight(selectedLeaf);
+			selectedNode.traceReplace(selectedLeaf, newNode);
 		}
 		else{
 			alert('Not yet fully implemented');
@@ -645,11 +751,27 @@ var leafActions = {
 		repaintAll();
 	},
 	addRight : function(){
+		// if no selected leaf, return
+		if(!selectedLeaf){
+			alert('Select a leaf before trying to add an element right of it');
+			return;
+		}
 		// If leaf selected but no node, node must be master node
-		if(selectedLeaf && !selectedNode){
+		if(!selectedNode){
 			masterNode = new hjoin();
-			masterNode.addLeft(selectedLeaf);
 			masterNode.addRight(new IncludedUnicodeLeaf());
+			masterNode.addLeft(selectedLeaf);
+		}
+		// if within a hjoin, find index and add to right
+		else if(selectedNode.type === 'hjoin'){
+			selectedNode.addRight(new IncludedUnicodeLeaf(), selectedLeaf);
+		}
+		// if within a vjoin, insert new hjoin within it preserving existing leaf
+		else if(selectedNode.type === 'vjoin'){
+			let newNode = new hjoin();
+			newNode.addRight(new IncludedUnicodeLeaf());
+			newNode.addLeft(selectedLeaf);
+			selectedNode.traceReplace(selectedLeaf, newNode);
 		}
 		else{
 			alert('Not yet fully implemented');
