@@ -6,6 +6,8 @@ var masterNode;
 var doDrawCentreMark = false;
 // element currently selected for editing
 var selectedElement;
+// element currently copied - static snapshot of element
+var copiedElement;
 //------------------------------------------------
 // DEFAULT STYLES/TEXTS
 // default text for text leaves - filled star
@@ -59,6 +61,9 @@ class Leaf{
 	getHeight(ctx){
 		throw new Error('Call to abstract function');
 	}
+	getCopy(){
+		throw new Error('Call to abstract function');
+	}
 }
 
 class TextLeaf extends Leaf{
@@ -67,6 +72,7 @@ class TextLeaf extends Leaf{
 		this.text = text;
 		// based on tested height of font for now - tricky problem
 		this.height = 20;
+		this.isTextLeaf = true;
 	}
 	getWidth(ctx){
 		ctx.font = "20px arial";
@@ -105,6 +111,14 @@ class TextLeaf extends Leaf{
 			return this.text;
 		}
   }
+	getCopy(){
+		if(this.latex){
+			return new UnicodeLeaf(this.text, this.latex);
+		}
+		else{
+			return new TextLeaf(this.text);
+		}
+	}
 }
 
 class UnicodeLeaf extends TextLeaf{
@@ -112,7 +126,7 @@ class UnicodeLeaf extends TextLeaf{
     super(canvasText);
     this.latex = latexCode;
 		this.isTextLeaf = true;
-  }
+	}
 }
 
 class IncludedUnicodeLeaf extends UnicodeLeaf{
@@ -124,10 +138,14 @@ class IncludedUnicodeLeaf extends UnicodeLeaf{
 class HCon extends IncludedUnicodeLeaf{
   constructor(key=DEFAULT_HCON){
     super(key);
+		this.key = key;
 		this.isTextLeaf = false;
 		this.isConnective = true;
 		this.isHCon = true;
   }
+	getCopy(){
+		return new HCon(this.key);
+	}
 }
 
 class VCon extends Leaf{
@@ -148,6 +166,12 @@ class VCon extends Leaf{
   getLatexRight(){
     return this.right;
   }
+	getCopy(){
+		let copy = new VCon(this.vConType);
+		copy.left = this.left;
+		copy.right = this.right;
+		return copy;
+	}
 }
 
 class HLine extends VCon{
@@ -240,6 +264,12 @@ class HLine extends VCon{
         throw new Error('Line type has no associated LaTeX prefix');
     }
   }
+	getCopy(){
+		let copy = new HLine(this.lineType);
+		copy.left = this.left;
+		copy.right = this.right;
+		return copy;
+	}
 }
 
 class Node extends Leaf{
@@ -357,6 +387,9 @@ class Node extends Leaf{
 		this.subs.forEach(function(item, index, array) {
 			item.repaint();
 		});
+	}
+	getCopy(){
+		throw new Error('Call to abstract function');
 	}
 }
 
@@ -476,6 +509,19 @@ class hjoin extends Node{
 		}
     return latex;
   }
+	getCopy(){
+		let copy = new hjoin();
+		// copy subs and connectives
+		for (let item of this.subs){
+			copy.subs.push(item.getCopy());
+		}
+		for (let item of this.connectives){
+			copy.connectives.push(item.getCopy());
+		}
+		// copy boxed setting
+		if(this.isBoxed) copy.isBoxed = true;
+		return copy;
+	}
 }
 
 class vjoin extends Node{
@@ -602,6 +648,19 @@ class vjoin extends Node{
 		}
     return latex;
   }
+	getCopy(){
+		let copy = new vjoin();
+		// copy subs and connectives
+		for (let item of this.subs){
+			copy.subs.push(item.getCopy());
+		}
+		for (let item of this.connectives){
+			copy.connectives.push(item.getCopy());
+		}
+		// copy boxed setting
+		if(this.isBoxed) copy.isBoxed = true;
+		return copy;
+	}
 }
 
 // script to run once page loads
@@ -761,6 +820,15 @@ var leafActions = {
 
 // general actions for leaves, nodes, connectives, etc
 var generalActions = {
+	copy : function(){
+		if(selectedElement == null) return;
+		copiedElement = selectedElement.getCopy();
+	},
+	paste : function(){
+		if(selectedElement == null || copiedElement == null) return;
+		masterNode.traceReplace(selectedElement, copiedElement.getCopy());
+		repaintAll();
+	},
 	// delete current element
 	delete : function(){
 		// if no selected element, return
