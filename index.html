@@ -26,29 +26,60 @@
     <br>
     <script src="javascripts/main.js" type="text/javascript"></script>
 
-    <div style = "text-align: center;">
+    <div id="leafEditDiv" style = "text-align:center;display:none;">
       <input type="text" id="textBox" size="2" oninput="leafActions.textBoxInput(this)" autocomplete="off" disabled="true">
-      <button onclick="leafActions.delete()">Delete &#x267B</button>
-      <button onclick="leafActions.addAbove()">Add above &#x1F869</button>
-      <button onclick="leafActions.addBelow()">Add below &#x1F86B</button>
-      <button onclick="leafActions.addLeft()">Add left &#x1F868</button>
-      <button onclick="leafActions.addRight()">Add right &#x1F86A</button>
+      <button onclick="generalActions.addAbove()">Add above &#x1F869</button>
+      <button onclick="generalActions.addBelow()">Add below &#x1F86B</button>
+      <button onclick="generalActions.addLeft()">Add left &#x1F868</button>
+      <button onclick="generalActions.addRight()">Add right &#x1F86A</button>
+    </div>
+    <div id="vConEditDiv" style = "text-align:center;display:none">
+      <input type="text" id="vConLeftText" size="2" oninput="conActions.vConLeft(this)" autocomplete="off" disabled="true">
+      <select id="vConStyleSelect" oninput="conActions.vConStyle(this)" autocomplete="off">
+        <option value="single_solid" selected>Single line</option>
+        <option value="single_dotted">Dotted line</option>
+        <option value="double_solid">Double line</option>
+      </select>
+      <input type="text" id="vConRightText" size="2" oninput="conActions.vConRight(this)" autocomplete="off" disabled="true">
+    </div>
+    <div id="hConEditDiv" style = "text-align:center;display:none">
+      <select id="hConStyleSelect" oninput="conActions.hConStyle(this)" autocomplete="off"">
+        <option value="log_and" selected>&#x2227</option>
+        <option value="log_or">&#x2228</option>
+        <option value="log_not">&#x00AC</option>
+        <option value="turned_ampersand">&#x214B</option>
+        <option value="circled_times">&#x2297</option>
+        <option value="normal_subgroup_of">&#x22B2</option>
+        <option value="multimap">&#x22B8</option>
+        <option value="superset_of">&#x2283</option>
+        <option value="subset_of">&#x2282</option>
+        <option value="psi_lower">&#x03C8</option>
+        <option value="right_arrow">&#x2192</option>
+        <option value="left_arrow">&#x2190</option>
+        <option value="left_right_arrow">&#x2194</option>
+        <option value="black_star">&#x2605</option>
+      </select>
+    </div>
+    <div id="nodeEditButtons" style = "text-align:center;display:none;">
+      <button onclick="nodeActions.setBox()">Toggle box</button>
+      <button onclick="generalActions.addAbove()">Add above &#x1F869</button>
+      <button onclick="generalActions.addBelow()">Add below &#x1F86B</button>
+      <button onclick="generalActions.addLeft()">Add left &#x1F868</button>
+      <button onclick="generalActions.addRight()">Add right &#x1F86A</button>
+    </div>
+    <div id="generalEditButtons" style = "text-align: center;">
+      <button onclick="generalActions.delete()">Delete &#x267B</button>
+      <button onclick="generalActions.selectParent()">Select parent</button>
     </div>
     <br>
     <div style = "text-align: center;">
-      <button onclick="printSelected()">Print selected</button>
-      <button onclick="myCanvas.reset()">Reset</button>
+      <button onclick="generalActions.reset()">Reset</button>
+      <button onclick="showLatex()">Generate LaTeX</button>
     </div>
     <br>
     <div style = "text-align: center;">
       <button onclick="repaintAll()">Repaint</button>
-      <button onclick="myCanvas.clear()">Clear</button>
       <button onclick="toggleCentreMark()">toggle crossHairs</button>
-      <button onclick="clearNodes()">reset demo</button>
-      <button onclick="dualDemo.hNext()">demo add H</button>
-      <button onclick="dualDemo.vNext()">demo add V</button>
-      <br>
-      <button onclick="showLatex()">Generate LaTeX</button>
     </div>
   </body>
 </html>

@@ -4,9 +4,8 @@ const DEBUG = true;
 var masterNode;
 // should the centre mark (crosshairs) be drawn?
 var doDrawCentreMark = false;
-// elements currently selected for editing
-var selectedLeaf;
-var selectedNode;
+// element currently selected for editing
+var selectedElement;
 //------------------------------------------------
 // DEFAULT STYLES/TEXTS
 // default text for text leaves - filled star
@@ -43,7 +42,7 @@ class Leaf{
 		// test if node clicked
 		if(clickX <= this.x + this.getWidth(ctx)/2 && clickX >= this.x - this.getWidth(ctx)/2 && clickY <= this.y + this.getHeight(ctx)/2 && clickY >= this.y - this.getHeight(ctx)/2){
 			// select element and return true
-			selectLeaf(this);
+			selectElement(this);
 			return true;
 		}
 		return false;
@@ -112,6 +111,7 @@ class UnicodeLeaf extends TextLeaf{
   constructor(canvasText, latexCode){
     super(canvasText);
     this.latex = latexCode;
+		this.isTextLeaf = true;
   }
 }
 
@@ -121,9 +121,20 @@ class IncludedUnicodeLeaf extends UnicodeLeaf{
   }
 }
 
+class HCon extends IncludedUnicodeLeaf{
+  constructor(key=DEFAULT_HCON){
+    super(key);
+		this.isTextLeaf = false;
+		this.isConnective = true;
+		this.isHCon = true;
+  }
+}
+
 class VCon extends Leaf{
 	constructor(vConType){
 		super('vcon');
+		this.isConnective = true;
+		this.isVCon = true;
     this.vConType = vConType;
     this.left = '';
     this.right = '';
@@ -161,10 +172,10 @@ class HLine extends VCon{
     switch(this.lineType){
       case 'single_solid':
       case 'single_dotted':
-        height = 1;
+        height = 8;
         break;
       case 'double_solid':
-        height = 5;
+        height = 10;
         break;
       default:
         throw new Error('Cannot return height - line type not set');
@@ -187,27 +198,27 @@ class HLine extends VCon{
     this.ctx.beginPath();
     switch(this.lineType){
       case 'single_solid':
-        this.ctx.moveTo(this.x - this.lineWidth/2, this.y);
-        this.ctx.lineTo(this.x + this.lineWidth/2, this.y);
+        this.ctx.moveTo(this.x - this.lineWidth/2, this.y + this.getHeight()/2);
+        this.ctx.lineTo(this.x + this.lineWidth/2, this.y + this.getHeight()/2);
         break;
       case 'single_dotted':
         const dashLength = 3;
         for(let x = this.x - this.lineWidth/2; x < this.x + this.lineWidth/2; x += 2 * dashLength){
-          this.ctx.moveTo(x, this.y);
+          this.ctx.moveTo(x, this.y + this.getHeight()/2);
           if(x + dashLength > this.x + this.lineWidth/2){
-            this.ctx.lineTo(this.x + this.lineWidth/2, this.y);
+            this.ctx.lineTo(this.x + this.lineWidth/2, this.y + this.getHeight()/2);
             break;
           }
           else{
-            this.ctx.lineTo(x + dashLength, this.y);
+            this.ctx.lineTo(x + dashLength, this.y + this.getHeight()/2);
           }
         }
         break;
       case 'double_solid':
-        this.ctx.moveTo(this.x - this.lineWidth/2, this.y - 2);
-        this.ctx.lineTo(this.x + this.lineWidth/2, this.y - 2);
-        this.ctx.moveTo(this.x - this.lineWidth/2, this.y + 2);
-        this.ctx.lineTo(this.x + this.lineWidth/2, this.y + 2);
+        this.ctx.moveTo(this.x - this.lineWidth/2, this.y + this.getHeight()/2 - 2);
+        this.ctx.lineTo(this.x + this.lineWidth/2, this.y + this.getHeight()/2 - 2);
+        this.ctx.moveTo(this.x - this.lineWidth/2, this.y + this.getHeight()/2 + 2);
+        this.ctx.lineTo(this.x + this.lineWidth/2, this.y + this.getHeight()/2 + 2);
         break;
       default:
         throw new Error('Cannot draw line - line type not set');
@@ -243,6 +254,32 @@ class Node extends Leaf{
 	addPrev(node){
 		this.subs.unshift(node);
 	}
+	setSelected(truth){
+		this.selected = truth;
+	}
+	traceParent(child){
+		// if child is directly in subs or connectives, return this as parent
+		for(let item of this.subs){
+			if(item === child){
+				return this;
+			}
+		}
+		for(let item of this.connectives){
+			if(item === child){
+				return this;
+			}
+		}
+		// search deeper in subs
+		for(let item of this.subs){
+			if(item.type === 'vjoin' || item.type === 'hjoin'){
+				let result = item.traceParent(child);
+				if(result){
+					return result;
+				}
+			}
+		}
+		return null;
+	}
 	traceReplace(oldNode, newNode){
 		for(let item of this.subs){
 			if(item === oldNode){
@@ -252,7 +289,7 @@ class Node extends Leaf{
 		}
 		for(let item of this.subs){
 			if(item.type === 'vjoin' || item.type === 'hjoin'){
-				item.traceReplace();
+				item.traceReplace(oldNode, newNode);
 			}
 		}
 	}
@@ -294,7 +331,7 @@ class Node extends Leaf{
 		// test if node clicked
 		if(clickX <= this.x + this.getWidth(ctx)/2 && clickX >= this.x - this.getWidth(ctx)/2 && clickY <= this.y + this.getHeight(ctx)/2 && clickY >= this.y - this.getHeight(ctx)/2){
 			// select element then test if sub-elements selected
-			selectNode(this);
+			selectElement(this);
 			if(this.subs){
 				for(let item of this.subs) {
 					item.traceClick(ctx, clickX, clickY);
@@ -337,7 +374,7 @@ class hjoin extends Node{
 			index = this.subs.indexOf(ref);
 		}
 		// if no other nodes, no connective needed, else add connective after
-		if(this.subs.length !== 0) this.connectives.splice(index, 0, new IncludedUnicodeLeaf(DEFAULT_HCON));
+		if(this.subs.length !== 0) this.connectives.splice(index, 0, new HCon());
 		this.subs.splice(index, 0, node);
 	}
 	// add node to right of the given node or at the very right if unspecified
@@ -348,7 +385,7 @@ class hjoin extends Node{
 			index = this.subs.indexOf(ref);
 		}
 		// if no other nodes, no connective needed, else add connective before
-		if(this.subs.length !== 0) this.connectives.splice(index + 1, 0, new IncludedUnicodeLeaf(DEFAULT_HCON));
+		if(this.subs.length !== 0) this.connectives.splice(index + 1, 0, new HCon());
 		this.subs.splice(index + 1, 0, node);
 	}
 	getHeight(ctx){
@@ -356,6 +393,10 @@ class hjoin extends Node{
 		this.subs.forEach(function(item, index, array) {
 			if(item.getHeight(ctx) > maxHeight) maxHeight = item.getHeight(ctx);
 		});
+		// if boxed, height heigher
+		if(this.isBoxed){
+			return maxHeight + 10;
+		}
 		return maxHeight;
 	}
 	getWidth(ctx){
@@ -367,6 +408,10 @@ class hjoin extends Node{
 			totalWidth += item.getWidth(ctx);
 		});
 		totalWidth += this.connectives.length * 2 * this.hspace;
+		// if boxed, width wider
+		if(this.isBoxed){
+			return totalWidth + 10;
+		}
 		return totalWidth;
 	}
 	stage(ctx, x, y){
@@ -374,6 +419,10 @@ class hjoin extends Node{
 		this.x = x;
 		this.y = y;
 		let left = x - this.getWidth(ctx)/2;
+		// if boxed, don't use full width - allow for box
+		if(this.isBoxed){
+			left = left + 5;
+		}
 		for (let item of this.subs) {
 			item.stage(ctx, left + item.getWidth(ctx)/2, y);
 			left += item.getWidth(ctx);
@@ -387,22 +436,45 @@ class hjoin extends Node{
 		};
 	}
 	repaint(){
+		// if selected, use highlight colour
+		if(this.selected){
+			var strokeColour = this.ctx.strokeStyle;
+			this.ctx.strokeStyle = HIGHLIGHT_COLOUR;
+			var fillColour = this.ctx.fillStyle;
+			this.ctx.fillStyle = HIGHLIGHT_COLOUR;
+		}
+		// draw box if needed
+		if(this.isBoxed){
+			const maxWidth = this.getWidth(this.ctx);
+			const height = this.getHeight(this.ctx)
+			this.ctx.rect(this.x - maxWidth/2, this.y - height/2, maxWidth, height);
+			this.ctx.stroke();
+		}
 		this.subs.forEach(function(item, index, array) {
 			item.repaint();
 		});
 		for (let item of this.connectives){
 			item.repaint();
 		}
+		// restore colour if changed
+		if(this.selected){
+			this.ctx.strokeStyle = strokeColour;
+			this.ctx.fillStyle = fillColour;
+		}
 	}
   getLatex(){
-    let result = '';
+    let latex = '';
     for (let item of this.subs){
-      result = result + item.getLatex();
+    latex = latex + item.getLatex();
       if(this.subs.indexOf(item) < this.subs.length -1){
-        result = result + ' ' + this.connectives[this.subs.indexOf(item)].getLatex() + ' ';
+        latex = latex + ' ' + this.connectives[this.subs.indexOf(item)].getLatex() + ' ';
       }
     }
-    return result;
+		// if boxed, add code
+		if(this.isBoxed){
+			latex = '\\odbox{' + latex + '}';
+		}
+    return latex;
   }
 }
 
@@ -443,6 +515,10 @@ class vjoin extends Node{
 			totalHeight += item.getHeight(ctx);
 			totalHeight += 2 * this.vspace;
 		}
+		// if boxed, extra height
+		if(this.isBoxed){
+			return totalHeight + 10;
+		}
 		return totalHeight;
 	}
 	getWidth(ctx){
@@ -450,15 +526,27 @@ class vjoin extends Node{
 		this.subs.forEach(function(item, index, array) {
 			if(item.getWidth(ctx) > maxWidth) maxWidth = item.getWidth(ctx);
 		});
+		// if boxed, extra width
+		if(this.isBoxed){
+			return maxWidth + 10;
+		}
 		return maxWidth;
 		// TO DO - vertical joins with minimum widths (e.g. subscript letters on side of line)
 	}
 	stage(ctx, x, y){
-		const maxWidth = this.getWidth(ctx);
+		let maxWidth = this.getWidth(ctx);
+		// if boxed, don't fill to full width
+		if(this.isBoxed){
+			maxWidth = maxWidth - 10;
+		}
 		this.ctx = ctx;
 		this.x = x;
 		this.y = y;
 		let top = y - this.getHeight(ctx)/2;
+		// if boxed, leave room at top
+		if(this.isBoxed){
+			top = top + 5;
+		}
 		for (let item of this.subs) {
 			item.stage(ctx, x, top + item.getHeight(ctx)/2);
 			top += item.getHeight(ctx);
@@ -473,11 +561,30 @@ class vjoin extends Node{
 		};
 	}
 	repaint(){
+		// if selected, use highlight colour
+		if(this.selected){
+			var strokeColour = this.ctx.strokeStyle;
+			this.ctx.strokeStyle = HIGHLIGHT_COLOUR;
+			var fillColour = this.ctx.fillStyle;
+			this.ctx.fillStyle = HIGHLIGHT_COLOUR;
+		}
+		if(this.isBoxed){
+			const maxWidth = this.getWidth(this.ctx);
+			const height = this.getHeight(this.ctx)
+			this.ctx.rect(this.x - maxWidth/2, this.y - height/2, maxWidth, height);
+			this.ctx.stroke();
+		}
+		// paint sub items
 		for(let item of this.subs){
 			item.repaint();
 		}
 		for(let item of this.connectives){
 			item.repaint();
+		}
+		// restore colour if changed
+		if(this.selected){
+			this.ctx.strokeStyle = strokeColour;
+			this.ctx.fillStyle = fillColour;
 		}
 	}
   getLatex(){
@@ -486,107 +593,145 @@ class vjoin extends Node{
     let latex = '\\odh{' + this.subs[0].getLatex() + '}';
     for(let i = 1; i < this.subs.length; i++){
       let con = this.connectives[i-1];
-      latex = con.getLatexPrefix() + '{' + latex + '}{' + con.getLatexLeft() + '}{' + this.subs[i].text + '}{' + con.getLatexRight() + '}';
+      latex = con.getLatexPrefix() + '{' + latex + '}{' + con.getLatexLeft() + '}{' + this.subs[i].getLatex() + '}{' + con.getLatexRight() + '}';
     }
     latex = '\\od{' + latex + '}';
+		// if boxed, add code
+		if(this.isBoxed){
+			latex = '\\odbox{' + latex + '}';
+		}
     return latex;
   }
 }
 
+// script to run once page loads
 function startScript(){
 	myCanvas.start();
 }
 
 var myCanvas = {
   canvas : document.getElementById("canvas"),
+	// set up function
   start : function() {
+		// set 2d context, attach resize listener, set initial canvas size
 		this.context = this.canvas.getContext("2d");
 		window.addEventListener('resize', myCanvas.resize);
 		this.resize();
 		this.reset();
   },
+	// reset canvas to default node
 	reset : function(){
 		masterNode = new IncludedUnicodeLeaf();
+		unselectElement();
 		repaintAll();
 	},
+	// blank the canvas ready to redraw
 	clear : function(){
 		this.context.clearRect(0,0, this.canvas.width, this.canvas.height);
 	},
+	// resize the canvas to fit the screen width
 	resize : function(){
+		// fit to screen width, min 500
 		let newWidth = Math.max(window.innerWidth, 500);
-		//let newHeight = window.innerHeight;
-		let newHeight = Math.max(0, 300);
+		// fit to half screen height, min 300
+		let newHeight = Math.max(window.innerHeight/2, 300);
 		this.canvas.width = newWidth;
 		this.canvas.height = newHeight;
 		repaintAll();
 	},
+	// find what element was clicked on
 	traceClick : function(event){
 		// convert from page coordinates to canvas coordinates
 		const x = event.pageX - this.canvas.offsetLeft;
 		const y = event.pageY - this.canvas.offsetTop;
 		// clear selected leaf/node
-		unselectAll();
+		unselectElement();
 		if(masterNode) masterNode.traceClick(this.context, x, y);
 		repaintAll();
 	}
 }
 
-function unselectAll(){
-	unselectLeaf();
-	unselectNode();
-}
-
-function selectLeaf(item){
-	unselectLeaf();
-	selectedLeaf = item;
+function selectElement(item){
+	unselectElement();
+	selectedElement = item;
+	if(item == null) return;
 	item.setSelected(true);
-	if(selectedLeaf.text){
+	// set buttons/text boxes active as relevant to element
+	// text leaf
+	if(selectedElement.isTextLeaf){
+		document.getElementById('leafEditDiv').style.display = 'block';
 		let textBox = document.getElementById('textBox');
-		if(selectedLeaf.text === getUnicodeChar(DEFAULT_SYMBOL)){
+		if(selectedElement.text === getUnicodeChar(DEFAULT_SYMBOL)){
 			textBox.value = '';
 		}
 		else{
-			textBox.value = selectedLeaf.text;
+			textBox.value = selectedElement.text;
 		}
 		textBox.disabled = false;
 		// set focus to text box for quick editing
 		textBox.focus();
 	}
+	// vcon vertical connective
+	else if(selectedElement.isVCon){
+		document.getElementById('vConEditDiv').style.display = 'block';
+		const dropdown = document.getElementById('vConStyleSelect');
+		dropdown.selectedIndex = optionIndex(dropdown.options, selectedElement.lineType);
+		// enable and load text fields
+		document.getElementById('vConLeftText').disabled = false;
+		document.getElementById('vConRightText').disabled = false;
+		document.getElementById('vConLeftText').value = selectedElement.left;
+		document.getElementById('vConRightText').value = selectedElement.right;
+	}
+	// hcon horizontal connective
+	else if(selectedElement.isHCon){
+		document.getElementById('hConEditDiv').style.display = 'block';
+		const dropdown = document.getElementById('hConStyleSelect');
+		dropdown.selectedIndex = optionIndex(dropdown.options, latexToUnicodeNameMap.get(selectedElement.latex));
+	}
+	// joining node
+	else if(selectedElement){
+		document.getElementById('nodeEditButtons').style.display = 'block';
+	}
+	// update view
+	repaintAll();
 }
 
-function unselectLeaf(){
+// return index of specified option from option list
+function optionIndex(options, text){
+	for(let i = 0; i < options.length; i++){
+		if(options[i].value === text){
+			return i;
+		}
+	}
+}
+
+function unselectElement(){
 	// if 'selected' is non-null, unselect
-	if(selectedLeaf){
-		selectedLeaf.setSelected(false);
+	if(selectedElement){
+		selectedElement.setSelected(false);
 		let textBox = document.getElementById('textBox');
 		textBox.disabled = true;
 		textBox.value = '';
+		// hide buttons
+		document.getElementById('leafEditDiv').style.display = 'none';
+		document.getElementById('vConEditDiv').style.display = 'none';
+		document.getElementById('hConEditDiv').style.display = 'none';
+		document.getElementById('nodeEditButtons').style.display = 'none';
+
+		// disable text fields in case they're still focused
+		document.getElementById('vConLeftText').disabled = true;
+		document.getElementById('vConRightText').disabled = true;
 	}
-	selectedLeaf = null;
+	selectedElement = null;
 }
 
-function selectNode(item){
-	unselectNode();
-	selectedNode = item;
-	item.setSelected(true);
-}
-
-function unselectNode(){
-	// if 'selected' is non-null, unselect
-	if(selectedNode){
-		selectedNode.setSelected(false);
-	}
-	selectedNode = null;
-}
-
-function printSelected(){
-	console.log(selectedLeaf);
-	console.log(selectedNode);
-}
-
+// redraw all elements on the canvas
 function repaintAll() {
-    myCanvas.clear();
+	// sometimes doesn't clear properly, currently called twice to clean up
+  myCanvas.clear();
 	myCanvas.context.textBaseline = 'middle';
+	myCanvas.context.stokeStyle = "#000000";
+	myCanvas.context.fillStyle = "#000000";
 	if(masterNode != null){
 		masterNode.stage(myCanvas.context, myCanvas.canvas.width/2, myCanvas.canvas.height/2);
 		masterNode.repaint();
@@ -594,223 +739,303 @@ function repaintAll() {
 	if(doDrawCentreMark) drawCentreMark(myCanvas.context);
 }
 
-function clearNodes(){
-	masterNode = null;
-	repaintAll();
-}
-
-var dualDemo = {
-	start : function() {
-		this.n = 1;
-		masterNode = new TextLeaf(this.n++);
-		repaintAll();
-	},
-	hNext : function() {
-		if (masterNode == null){
-			dualDemo.start();
-			return;
+// actions specifically for leaves
+var leafActions = {
+	textBoxInput : function(textbox){
+		// if currently selected element is text, update
+		if(selectedElement.isTextLeaf){
+			if(textBox.value){
+				// default has latex for a star - remove when text set
+				selectedElement.text = textbox.value;
+				selectedElement.latex = '';
+			}
+			// if textbox empty, set as star
+			else{
+				selectedElement.text = getUnicodeChar(DEFAULT_SYMBOL);
+				selectedElement.latex = nameToUnicodeLatexMap.get(DEFAULT_SYMBOL);
+			}
 		}
-		if(this.n == undefined) this.n = 1;
-		if(masterNode.type === 'hjoin'){
-			masterNode.addRight(new TextLeaf(this.n++));
-		}
-		else{
-			const newMaster = new hjoin();
-			newMaster.addLeft(masterNode);
-			newMaster.addRight(new TextLeaf(this.n++));
-			masterNode = newMaster;
-		}
-		unselectAll();
-		repaintAll();
-	},
-	vNext : function() {
-		if (masterNode == null){
-			dualDemo.start();
-			return;
-		}
-		if(this.n == undefined) this.n = 1;
-		if(masterNode.type === 'vjoin'){
-			masterNode.addBelow(new TextLeaf(this.n++));
-		}
-		else{
-			var newMaster = new vjoin();
-			newMaster.addAbove(masterNode);
-			newMaster.addBelow(new TextLeaf(this.n++));
-			masterNode = newMaster;
-		}
-		unselectAll();
 		repaintAll();
 	}
 }
 
-var leafActions = {
-	textBoxInput : function(textBox){
-		// if currently selected element is text, update
-		if(selectedLeaf.text){
-			if(textBox.value){
-				selectedLeaf.text = textBox.value;
-				selectedLeaf.latex = '';
-			}
-			else{
-				selectedLeaf.text = getUnicodeChar(DEFAULT_SYMBOL);
-				selectedLeaf.latex = nameToUnicodeLatexMap.get(DEFAULT_SYMBOL);
-			}
-		}
-		repaintAll();
-	},
+// general actions for leaves, nodes, connectives, etc
+var generalActions = {
+	// delete current element
 	delete : function(){
-		masterNode.traceRemove(selectedLeaf);
-		unselectAll();
-		repaintAll();
-	},
-	addAbove : function(){
-		// if no selected leaf, return
-		if(!selectedLeaf){
-			alert('Select a leaf before trying to add an element above it');
+		// if no selected element, return
+		if(!selectedElement){
+			alert('Select something to delete first');
 			return;
 		}
-		// If leaf selected but no node, node must be master node
-		if(!selectedNode){
-			masterNode = new vjoin();
-			masterNode.addAbove(new IncludedUnicodeLeaf());
-			masterNode.addBelow(selectedLeaf);
+		// if element is masterNode, reset to default textBox
+		if(selectedElement === masterNode){
+			// ask to confirm if more than just a text box
+			if(selectedElement.isTextLeaf){
+				masterNode = new IncludedUnicodeLeaf();
+			}
+			else{
+				if(confirm('Are you sure you want to delete this whole section?')) masterNode = new IncludedUnicodeLeaf();
+				else return;
+			}
 		}
-		// if within a vjoin, find index and add above
-		else if(selectedNode.type === 'vjoin'){
-			selectedNode.addAbove(new IncludedUnicodeLeaf(), selectedLeaf);
-		}
-		// if within a hjoin, insert new vjoin within it preserving existing leaf
-		else if(selectedNode.type === 'hjoin'){
-			let newNode = new vjoin();
-			newNode.addAbove(new IncludedUnicodeLeaf());
-			newNode.addBelow(selectedLeaf);
-			selectedNode.traceReplace(selectedLeaf, newNode);
+		// if text leaf selected, remove, if join element selected, delete the construct
+		else if(selectedElement.isTextLeaf){
+			masterNode.traceRemove(selectedElement);
 		}
 		else{
-			alert('Not yet fully implemented');
+			// confirm before deleting
+			if(confirm('Are you sure you want to delete this whole section?')) masterNode.traceRemove(selectedElement);
+			else return;
 		}
-		unselectAll();
+		// update view
+		unselectElement();
+		repaintAll();
+	},
+	// add new element above the selected element
+	addAbove : function(){
+		// if no selected element, return
+		if(!selectedElement){
+			alert('Select an element before trying to add an element above it');
+			return;
+		}
+		// new leaf from default
+		const newLeaf = new IncludedUnicodeLeaf();
+		// if element is a connective, return
+		if(selectedElement.isConnective) return;
+		// If element is master node, insert new join at master
+		if(selectedElement === masterNode){
+			masterNode = new vjoin();
+			masterNode.addAbove(newLeaf);
+			masterNode.addBelow(selectedElement);
+		}
+		// if within a vjoin, find index and add above
+		else if(masterNode.traceParent(selectedElement).type === 'vjoin'){
+			masterNode.traceParent(selectedElement).addAbove(newLeaf, selectedElement);
+		}
+		// if within a hjoin, insert new vjoin within it preserving existing leaf
+		else if(masterNode.traceParent(selectedElement).type === 'hjoin'){
+			let newNode = new vjoin();
+			newNode.addAbove(newLeaf);
+			newNode.addBelow(selectedElement);
+			masterNode.traceReplace(selectedElement, newNode);
+		}
+		// select the new leaf
+		selectElement(newLeaf);
+		// update view
 		repaintAll();
 	},
 	addBelow : function(){
-		// if no selected leaf, return
-		if(!selectedLeaf){
-			alert('Select a leaf before trying to add an element below it');
+		// if no selected element, return
+		if(!selectedElement){
+			alert('Select an element before trying to add an element below it');
 			return;
 		}
-		// If leaf selected but no node, node must be master node
-		if(!selectedNode){
+		// new leaf from default
+		const newLeaf = new IncludedUnicodeLeaf();
+		// if element is connective, return
+		if(selectedElement.isConnective) return;
+		// If element is master node, insert new join at master
+		if(selectedElement === masterNode){
 			masterNode = new vjoin();
-			masterNode.addBelow(new IncludedUnicodeLeaf());
-			masterNode.addAbove(selectedLeaf);
+			masterNode.addBelow(newLeaf);
+			masterNode.addAbove(selectedElement);
 		}
-		// if within a vjoin, find index and add above
-		else if(selectedNode.type === 'vjoin'){
-			selectedNode.addBelow(new IncludedUnicodeLeaf(), selectedLeaf);
+		// if within a vjoin, find index and add below
+		else if(masterNode.traceParent(selectedElement).type === 'vjoin'){
+			masterNode.traceParent(selectedElement).addBelow(newLeaf, selectedElement);
 		}
 		// if within a hjoin, insert new vjoin within it preserving existing leaf
-		else if(selectedNode.type === 'hjoin'){
+		else if(masterNode.traceParent(selectedElement).type === 'hjoin'){
 			let newNode = new vjoin();
-			newNode.addBelow(new IncludedUnicodeLeaf());
-			newNode.addAbove(selectedLeaf);
-			selectedNode.traceReplace(selectedLeaf, newNode);
+			newNode.addBelow(newLeaf);
+			newNode.addAbove(selectedElement);
+			masterNode.traceReplace(selectedElement, newNode);
 		}
-		else{
-			alert('Not yet fully implemented');
-		}
-		unselectAll();
+		// select the new leaf
+		selectElement(newLeaf);
+		// update view
 		repaintAll();
 	},
 	addLeft : function(){
-		// if no selected leaf, return
-		if(!selectedLeaf){
-			alert('Select a leaf before trying to add an element left of it');
+		// if no selected element, return
+		if(!selectedElement){
+			alert('Select an element before trying to add an element left of it');
 			return;
 		}
-		// If leaf selected but no node, node must be master node
-		if(!selectedNode){
+		// new leaf from default
+		const newLeaf = new IncludedUnicodeLeaf();
+		// if element is connective, return
+		if(selectedElement.isConnective) return;
+		// If element is master node, insert new join at master
+		if(selectedElement === masterNode){
 			masterNode = new hjoin();
-			masterNode.addLeft(new IncludedUnicodeLeaf());
-			masterNode.addRight(selectedLeaf);
+			masterNode.addLeft(newLeaf);
+			masterNode.addRight(selectedElement);
 		}
 		// if within a hjoin, find index and add to left
-		else if(selectedNode.type === 'hjoin'){
-			selectedNode.addLeft(new IncludedUnicodeLeaf(), selectedLeaf);
+		else if(masterNode.traceParent(selectedElement).type === 'hjoin'){
+			masterNode.traceParent(selectedElement).addLeft(newLeaf, selectedElement);
 		}
 		// if within a vjoin, insert new hjoin within it preserving existing leaf
-		else if(selectedNode.type === 'vjoin'){
+		else if(masterNode.traceParent(selectedElement).type === 'vjoin'){
 			let newNode = new hjoin();
-			newNode.addLeft(new IncludedUnicodeLeaf());
-			newNode.addRight(selectedLeaf);
-			selectedNode.traceReplace(selectedLeaf, newNode);
+			newNode.addLeft(newLeaf);
+			newNode.addRight(selectedElement);
+			masterNode.traceReplace(selectedElement, newNode);
 		}
-		else{
-			alert('Not yet fully implemented');
-		}
-		unselectAll();
+		// select the new leaf
+		selectElement(newLeaf);
+		// update view
 		repaintAll();
 	},
 	addRight : function(){
-		// if no selected leaf, return
-		if(!selectedLeaf){
-			alert('Select a leaf before trying to add an element right of it');
+		// if no selected element, return
+		if(!selectedElement){
+			alert('Select an element before trying to add an element right of it');
 			return;
 		}
-		// If leaf selected but no node, node must be master node
-		if(!selectedNode){
+		// new leaf from default
+		const newLeaf = new IncludedUnicodeLeaf();
+		// if element is connective, return
+		if(selectedElement.isConnective) return;
+		// If element is master node, insert new join at master
+		if(selectedElement === masterNode){
 			masterNode = new hjoin();
-			masterNode.addRight(new IncludedUnicodeLeaf());
-			masterNode.addLeft(selectedLeaf);
+			masterNode.addRight(newLeaf);
+			masterNode.addLeft(selectedElement);
 		}
-		// if within a hjoin, find index and add to right
-		else if(selectedNode.type === 'hjoin'){
-			selectedNode.addRight(new IncludedUnicodeLeaf(), selectedLeaf);
+		// if within a jjoin, find index and add to right
+		else if(masterNode.traceParent(selectedElement).type === 'hjoin'){
+			masterNode.traceParent(selectedElement).addRight(newLeaf, selectedElement);
 		}
 		// if within a vjoin, insert new hjoin within it preserving existing leaf
-		else if(selectedNode.type === 'vjoin'){
+		else if(masterNode.traceParent(selectedElement).type === 'vjoin'){
 			let newNode = new hjoin();
-			newNode.addRight(new IncludedUnicodeLeaf());
-			newNode.addLeft(selectedLeaf);
-			selectedNode.traceReplace(selectedLeaf, newNode);
+			newNode.addRight(newLeaf);
+			newNode.addLeft(selectedElement);
+			masterNode.traceReplace(selectedElement, newNode);
+		}
+		// select the new leaf
+		selectElement(newLeaf);
+		// update view
+		repaintAll();
+	},
+	// select the parent of the current element
+	selectParent : function(){
+		// if masternode, can't go heigher
+		if(selectedElement == masterNode) return;
+		const parent = masterNode.traceParent(selectedElement);
+		// if successful, select
+		if(parent) selectElement(parent);
+		// update view
+		repaintAll();
+	},
+	// reset canvas to default state
+	reset : function(){
+		// if masterNode is text leaf, don't bother prompting
+		if(masterNode.isTextLeaf){
+			myCanvas.reset();
 		}
 		else{
-			alert('Not yet fully implemented');
+		// else prompt before deleting
+			if(confirm('Are you sure you want to delete everything?')) myCanvas.reset();
+			else return;
 		}
-		unselectAll();
+	}
+}
+
+// actions specifically for modifying connectives
+var conActions = {
+	vConStyle : function(dropdown){
+		// sanity check that element is hline, then set style
+		if(selectedElement.vConType === 'hline'){
+			selectedElement.lineType = dropdown.value;
+		}
+		repaintAll();
+	},
+	vConLeft : function(textbox){
+		selectedElement.left = textbox.value;
+	},
+	vConRight : function(textbox){
+		selectedElement.right = textbox.value;
+	},
+	hConStyle : function(dropdown){
+		// sanity check that element is hcon, then set style
+		if(selectedElement.isHCon){
+			selectedElement.text = getUnicodeChar(dropdown.value);
+			selectedElement.latex = nameToUnicodeLatexMap.get(dropdown.value);
+		}
 		repaintAll();
 	}
 }
 
-function drawCentreMark(context){
-	context.fillStyle="#00FF00";
-	context.beginPath();
-	context.moveTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 - 5);
-	context.lineTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 + 5);
-	context.moveTo(myCanvas.canvas.width/2 + 5, myCanvas.canvas.height/2 - 5);
-	context.lineTo(myCanvas.canvas.width/2 - 5, myCanvas.canvas.height/2 + 5);
-	context.stroke();
-	context.beginPath();
-	context.fillStyle="#000000";
+// actions specifically for nodes
+var nodeActions = {
+	setBox : function(tickbox){
+		if(selectedElement.isBoxed){
+			selectedElement.isBoxed = false;
+		}
+		else{
+			selectedElement.isBoxed = true;
+		}
+		repaintAll();
+	}
 }
 
+// debug function - mark centre of canvas
+function drawCentreMark(context){
+	// preserve current colour
+	const colour = context.strokeStyle;
+	// colour to stand out
+	context.strokeStyle="#009000";
+	// draw crosshair
+	context.beginPath();
+	context.moveTo(myCanvas.canvas.width/2 - 10, myCanvas.canvas.height/2 - 10);
+	context.lineTo(myCanvas.canvas.width/2 + 10, myCanvas.canvas.height/2 + 10);
+	context.moveTo(myCanvas.canvas.width/2 + 10, myCanvas.canvas.height/2 - 10);
+	context.lineTo(myCanvas.canvas.width/2 - 10, myCanvas.canvas.height/2 + 10);
+	context.stroke();
+	context.strokeStyle = colour;
+}
+
+// debug function - toggle global variable to mark centre of canvas
 function toggleCentreMark(){
 	doDrawCentreMark = !doDrawCentreMark;
 	repaintAll();
 }
 
+// get latex code for current deduction. Calls on masterNode and cascades down tree
 function toLatex(){
+	// if no node, no latex
   if(masterNode == null) return '';
-  else{
-    let test = masterNode.getLatex();
-    if(test == undefined) throw new Error('This type is not currently supported');
-    else return test;
-  }
+  let latex = masterNode.getLatex();
+	// make sure text isn't null/undefined
+  if(latex == undefined) throw new Error('This type is not currently supported');
+  // add support code
+	// settings
+	latex = '\\odframefalse ' + latex;
+	latex = '\\vlgoodsyntax ' + latex;
+	latex = '$ ' + latex + ' $';
+	return latex;
 }
 
+// generate latex code for current deduction and display it in popup to copy
 function showLatex(){
+	if(masterNode.getLatex() == '\\bigstar'){
+		window.alert('Create a deduction and then press this button to get the Virginia Lake LaTeX code for it.');
+		return false;
+	}
   const text = toLatex();
+	// if successful, show and return true
 	if(text){
 		window.prompt('Copy the LaTeX markup below and paste it into your LaTeX editor.\nMake sure to include the Virginia Lake package.', text);
+		return true;
+	}
+	// if unsuccessful, show help text and return false. May be error or just no deduction
+	else{
+		window.alert('Create a deduction and then press this button to get the Virginia Lake LaTeX code for it.');
+		return false;
 	}
 }
 
@@ -830,11 +1055,18 @@ function getUnicodeChar(name){
   return String.fromCharCode(parseInt(nameToUnicodeHexMap.get(name), 16))
 }
 
+// map character names to Unicode hex numbers
 const nameToUnicodeHexMap = new Map(
 	new Array(
 		['log_and', '2227'],
 		['log_or', '2228'],
 		['log_not', '00AC'],
+		['turned_ampersand', '214B'],
+		['circled_times', '2297'],
+		['normal_subgroup_of', '22B2'],
+		['multimap', '22B8'],
+		['superset_of', '2283'],
+		['subset_of', '2282'],
 		['psi_lower', '03C8'],
 		['right_arrow', '2192'],
 		['left_arrow', '2190'],
@@ -843,15 +1075,42 @@ const nameToUnicodeHexMap = new Map(
 	)
 );
 
+// map character names to latex codes
 const nameToUnicodeLatexMap = new Map(
 	new Array(
 		['log_and', '\\vlan'],
 		['log_or', '\\vlor'],
 		['log_not', '\\vlne'],
+		['turned_ampersand', '\\vlpa'],
+		['circled_times', '\\vlte'],
+		['normal_subgroup_of', '\\vlse'],
+		['multimap', '\\vlli'],
+		['superset_of', '\\vljm'],
+		['subset_of', '\\vlmj'],
 		['psi_lower', '\\psi'],
 		['right_arrow', '\\vlim'],
 		['left_arrow', '\\vlmi'],
 		['left_right_arrow', '\\vldi'],
 		['black_star', '\\bigstar']
+	)
+);
+
+// map latex codes to character names
+const latexToUnicodeNameMap = new Map(
+	new Array(
+		['\\vlan', 'log_and'],
+		['\\vlor', 'log_or'],
+		['\\vlne', 'log_not'],
+		['\\vlpa', 'turned_ampersand'],
+		['\\vlte', 'circled_times'],
+		['\\vlse', 'normal_subgroup_of'],
+		['\\vlli', 'multimap'],
+		['\\vljm', 'superset_of'],
+		['\\vlmj', 'subset_of'],
+		['\\psi', 'psi_lower'],
+		['\\vlim', 'right_arrow'],
+		['\\vlmi', 'left_arrow'],
+		['\\vldi', 'left_right_arrow'],
+		['\\bigstar', 'black_star']
 	)
 );
