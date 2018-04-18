@@ -1,13 +1,14 @@
-// debug mode active
-const DEBUG = true;
-// root node of tree
-var masterNode;
-// should the centre mark (crosshairs) be drawn?
-var doDrawCentreMark = false;
-// element currently selected for editing
-var selectedElement;
-// element currently copied - static snapshot of element
-var copiedElement;
+// Author: Tom Dufall
+//------------------------------------------------
+// GLOBAL VARIABLES
+	// root nodes of trees
+	var masterNode;
+	// should the centre mark (crosshairs) be drawn? (debug feature)
+	var doDrawCentreMark = false;
+	// element currently selected for editing
+	var selectedElement;
+	// element currently copied - static snapshot of element
+	var copiedElement;
 //------------------------------------------------
 // DEFAULT STYLES/TEXTS
 // default text for text leaves - filled star
@@ -16,7 +17,8 @@ const DEFAULT_SYMBOL = 'black_star';
 const DEFAULT_HCON = 'log_and';
 // colour to hightlight items when clicked
 const HIGHLIGHT_COLOUR = "#0000FF";
-
+//------------------------------------------------
+// generic leaf element - element with no sub elements, e.g. horizontal line or text
 class Leaf{
 	constructor(type){
 		this.type = type;
@@ -55,6 +57,9 @@ class Leaf{
 	repaint(){
 		throw new Error('Call to abstract function');
 	}
+	getLatex(){
+		throw new Error('Call to abstract function');
+	}
 	getWidth(ctx){
 		throw new Error('Call to abstract function');
 	}
@@ -66,6 +71,7 @@ class Leaf{
 	}
 }
 
+// Leaf with text to print to canvas
 class TextLeaf extends Leaf{
 	constructor(text){
 		super('leaf');
@@ -324,12 +330,11 @@ class Node extends Leaf{
 		}
 	}
 	traceRemove(node){
+		if(!node) return;
+		// iterate over subs to find element to remove
 		for(let item of this.subs){
 			if(item === node){
-				// unsafe edge cases
-				if(!node) return;
-				if(this.subs.length === 0) return;
-				// find element to remove
+				// find index of element to remove
 				let index = this.subs.indexOf(node);
 				// remove element
 				this.subs.splice(index, 1);
@@ -340,17 +345,14 @@ class Node extends Leaf{
 				else if(index !== 0){
 					this.connectives.splice(index - 1, 1);
 				}
+				// if no elements left in subs, remove this join
 				if(this.subs.length === 0){
-					if(masterNode === this){
-						masterNode = new IncludedUnicodeLeaf();
-					}
-					else{
-						masterNode.traceRemove(this);
-					}
+					generalActions.delete(this);
 				}
 				return;
 			}
 		}
+		// search deeper in subs that are nodes
 		for(let item of this.subs){
 			if(item.type === 'vjoin' || item.type === 'hjoin'){
 				item.traceRemove(node);
@@ -390,6 +392,51 @@ class Node extends Leaf{
 	}
 	getCopy(){
 		throw new Error('Call to abstract function');
+	}
+}
+
+// display join to display multiple nodes at once
+class dJoin extends Node{
+	constructor(){
+		super('djoin');
+	}
+	stage(ctx, x, y){
+		this.ctx = ctx;
+		this.x = x;
+		this.y = y;
+		// djoin can only be masternode, else will wreck spacing
+		if(this !== masterNode){
+			alert('djoin can only be used as a masternode, not embedded');
+			return;
+		}
+		let hSpace = myCanvas.canvas.width / (this.subs.length + 1)
+		x = 0;
+		for(let item of this.subs){
+			x += hSpace;
+			item.stage(ctx, x, y);
+		}
+	}
+	repaint(){
+		for(let item of this.subs){
+			item.repaint();
+		}
+	}
+	getLatex(){
+		let latex = '';
+		for(let item of this.subs){
+			latex += toLatex(item);
+			latex += ' \\\\ ';
+		}
+		return latex;
+	}
+	getCopy(){
+		alert('You can\'t copy a display join');
+	}
+	getWidth(){
+		return myCanvas.canvas.width;
+	}
+	getHeight(){
+		return myCanvas.canvas.height;
 	}
 }
 
@@ -705,7 +752,7 @@ var myCanvas = {
 		const y = event.pageY - this.canvas.offsetTop;
 		// clear selected leaf/node
 		unselectElement();
-		if(masterNode) masterNode.traceClick(this.context, x, y);
+		masterNode.traceClick(this.context, x, y);
 		repaintAll();
 	}
 }
@@ -747,7 +794,11 @@ function selectElement(item){
 		const dropdown = document.getElementById('hConStyleSelect');
 		dropdown.selectedIndex = optionIndex(dropdown.options, latexToUnicodeNameMap.get(selectedElement.latex));
 	}
-	// joining node
+	// display join - no menu
+	else if(selectedElement.type === 'djoin'){
+		// no menu
+	}
+		// joining node
 	else if(selectedElement){
 		document.getElementById('nodeEditButtons').style.display = 'block';
 	}
@@ -830,16 +881,16 @@ var generalActions = {
 		repaintAll();
 	},
 	// delete current element
-	delete : function(){
+	delete : function(toDelete){
 		// if no selected element, return
-		if(!selectedElement){
+		if(!toDelete){
 			alert('Select something to delete first');
 			return;
 		}
 		// if element is masterNode, reset to default textBox
-		if(selectedElement === masterNode){
+		if(toDelete === masterNode){
 			// ask to confirm if more than just a text box
-			if(selectedElement.isTextLeaf){
+			if(toDelete.isTextLeaf){
 				masterNode = new IncludedUnicodeLeaf();
 			}
 			else{
@@ -847,13 +898,16 @@ var generalActions = {
 				else return;
 			}
 		}
-		// if text leaf selected, remove, if join element selected, delete the construct
-		else if(selectedElement.isTextLeaf){
-			masterNode.traceRemove(selectedElement);
+		// if text leaf selected, remove
+		else if(toDelete.isTextLeaf){
+			masterNode.traceRemove(toDelete);
+		}
+		else if(toDelete.isConnective){
+			alert('Deleting the elements to the side of a connective will delete it automatically');
 		}
 		else{
 			// confirm before deleting
-			if(confirm('Are you sure you want to delete this whole section?')) masterNode.traceRemove(selectedElement);
+			if(confirm('Are you sure you want to delete this whole section?')) masterNode.traceRemove(toDelete);
 			else return;
 		}
 		// update view
@@ -881,8 +935,8 @@ var generalActions = {
 		else if(masterNode.traceParent(selectedElement).type === 'vjoin'){
 			masterNode.traceParent(selectedElement).addAbove(newLeaf, selectedElement);
 		}
-		// if within a hjoin, insert new vjoin within it preserving existing leaf
-		else if(masterNode.traceParent(selectedElement).type === 'hjoin'){
+		// if within a hjoin or djoin, insert new vjoin within it preserving existing leaf
+		else if(masterNode.traceParent(selectedElement).type === 'hjoin' || masterNode.traceParent(selectedElement).type === 'djoin'){
 			let newNode = new vjoin();
 			newNode.addAbove(newLeaf);
 			newNode.addBelow(selectedElement);
@@ -914,7 +968,7 @@ var generalActions = {
 			masterNode.traceParent(selectedElement).addBelow(newLeaf, selectedElement);
 		}
 		// if within a hjoin, insert new vjoin within it preserving existing leaf
-		else if(masterNode.traceParent(selectedElement).type === 'hjoin'){
+		else if(masterNode.traceParent(selectedElement).type === 'hjoin' || masterNode.traceParent(selectedElement).type === 'djoin'){
 			let newNode = new vjoin();
 			newNode.addBelow(newLeaf);
 			newNode.addAbove(selectedElement);
@@ -946,7 +1000,7 @@ var generalActions = {
 			masterNode.traceParent(selectedElement).addLeft(newLeaf, selectedElement);
 		}
 		// if within a vjoin, insert new hjoin within it preserving existing leaf
-		else if(masterNode.traceParent(selectedElement).type === 'vjoin'){
+		else if(masterNode.traceParent(selectedElement).type === 'vjoin' || masterNode.traceParent(selectedElement).type === 'djoin'){
 			let newNode = new hjoin();
 			newNode.addLeft(newLeaf);
 			newNode.addRight(selectedElement);
@@ -978,7 +1032,7 @@ var generalActions = {
 			masterNode.traceParent(selectedElement).addRight(newLeaf, selectedElement);
 		}
 		// if within a vjoin, insert new hjoin within it preserving existing leaf
-		else if(masterNode.traceParent(selectedElement).type === 'vjoin'){
+		else if(masterNode.traceParent(selectedElement).type === 'vjoin' || masterNode.traceParent(selectedElement).type === 'djoin'){
 			let newNode = new hjoin();
 			newNode.addRight(newLeaf);
 			newNode.addLeft(selectedElement);
@@ -1010,6 +1064,17 @@ var generalActions = {
 			if(confirm('Are you sure you want to delete everything?')) myCanvas.reset();
 			else return;
 		}
+	},
+	splitDisplay : function(){
+		// if masterNode isn't a display join, make it one
+		if(masterNode.type !== 'djoin'){
+			let oldMaster = masterNode;
+			masterNode = new dJoin();
+			masterNode.addNext(oldMaster);
+		}
+		// add new section
+		masterNode.addNext(new IncludedUnicodeLeaf());
+		repaintAll();
 	}
 }
 
@@ -1074,12 +1139,16 @@ function toggleCentreMark(){
 }
 
 // get latex code for current deduction. Calls on masterNode and cascades down tree
-function toLatex(){
+function toLatex(node){
 	// if no node, no latex
-  if(masterNode == null) return '';
-  let latex = masterNode.getLatex();
+  if(node == null) return '';
+  let latex = node.getLatex();
 	// make sure text isn't null/undefined
   if(latex == undefined) throw new Error('This type is not currently supported');
+	// skip additional support code if node type is djoin - this handles this itself
+	if(node.type === 'djoin'){
+		return latex;
+	}
   // add support code
 	// settings
 	latex = '\\odframefalse ' + latex;
@@ -1088,13 +1157,13 @@ function toLatex(){
 	return latex;
 }
 
-// generate latex code for current deduction and display it in popup to copy
+// get latex code for everything on screen
 function showLatex(){
 	if(masterNode.getLatex() == '\\bigstar'){
 		window.alert('Create a deduction and then press this button to get the Virginia Lake LaTeX code for it.');
 		return false;
 	}
-  const text = toLatex();
+  const text = toLatex(masterNode);
 	// if successful, show and return true
 	if(text){
 		window.prompt('Copy the LaTeX markup below and paste it into your LaTeX editor.\nMake sure to include the Virginia Lake package.', text);
@@ -1105,6 +1174,11 @@ function showLatex(){
 		window.alert('Create a deduction and then press this button to get the Virginia Lake LaTeX code for it.');
 		return false;
 	}
+}
+
+// enable dev buttons for quicker testing
+function devMode(){
+	document.getElementById('devButtons').style.display = 'block';
 }
 
 function unicodeToHTML5(unicode){
