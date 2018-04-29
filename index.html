@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-
+  <!-- Author: Tom Dufall -->
   <head>
     <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
@@ -12,14 +12,15 @@
 
   	<style>
       canvas {
-        border: 1px solid #d3d3d3;
-        background-color: #f1f1f1;
+       border: 1px solid #d3d3d3;
+       background-color: #f1f1f1;
       }
     </style>
 
   </head>
 
   <body onload = "startScript()">
+	<h1 id="project_title">DI Builder</h1>
     <canvas id="canvas" style="border:1px solid #000000;" onclick="myCanvas.traceClick(event)">
       Your browser does not support the HTML5 canvas tag which is necessary to use this site.
     </canvas>
@@ -39,6 +40,8 @@
         <option value="single_solid" selected>Single line</option>
         <option value="single_dotted">Dotted line</option>
         <option value="double_solid">Double line</option>
+        <option value="short_vertical_equals">Short vertical equals</option>
+        <option value="long_vertical_equals">Long vertical equals</option>
       </select>
       <input type="text" id="vConRightText" size="2" oninput="conActions.vConRight(this)" autocomplete="off" disabled>
     </div>
@@ -79,8 +82,8 @@
       <button onclick="generalActions.splitDisplay()">Split display</button>
       <button onclick="showLatex()">Generate LaTeX</button>
     </div>
-    <br>
     <div id="devButtons" style = "text-align: center; display:none">
+	  <br>
       <button onclick="repaintAll()">Repaint</button>
       <button onclick="toggleCentreMark()">toggle crossHairs</button>
     </div>

@@ -195,6 +195,9 @@ class HLine extends VCon{
 	}
 	getWidth(){
     // TODO with left/right vals
+		if(this.lineType === 'short_vertical_equals' || this.lineType === 'long_vertical_equals'){
+			return Math.max(this.lineWidth, 6);
+		}
 		return this.lineWidth;
 	}
 	getHeight(){
@@ -207,6 +210,12 @@ class HLine extends VCon{
       case 'double_solid':
         height = 10;
         break;
+			case 'short_vertical_equals':
+				height = 20
+				break;
+			case 'long_vertical_equals':
+				height = 30;
+				break;
       default:
         throw new Error('Cannot return height - line type not set');
     }
@@ -250,6 +259,18 @@ class HLine extends VCon{
         this.ctx.moveTo(this.x - this.lineWidth/2, this.y + this.getHeight()/2 + 2);
         this.ctx.lineTo(this.x + this.lineWidth/2, this.y + this.getHeight()/2 + 2);
         break;
+			case 'short_vertical_equals':
+				this.ctx.moveTo(this.x - 2, this.y + this.getHeight()/2 - 8);
+				this.ctx.lineTo(this.x - 2, this.y + this.getHeight()/2 + 8);
+				this.ctx.moveTo(this.x + 2, this.y + this.getHeight()/2 - 8);
+				this.ctx.lineTo(this.x + 2, this.y + this.getHeight()/2 + 8);
+				break;
+			case 'long_vertical_equals':
+				this.ctx.moveTo(this.x - 2, this.y + this.getHeight()/2 - 15);
+				this.ctx.lineTo(this.x - 2, this.y + this.getHeight()/2 + 15);
+				this.ctx.moveTo(this.x + 2, this.y + this.getHeight()/2 - 15);
+				this.ctx.lineTo(this.x + 2, this.y + this.getHeight()/2 + 15);
+				break;
       default:
         throw new Error('Cannot draw line - line type not set');
     }
@@ -266,6 +287,10 @@ class HLine extends VCon{
         return '\\odI';
       case 'single_dotted':
         return '\\odo';
+			case 'short_vertical_equals':
+				return '\\odd';
+			case 'long_vertical_equals':
+				return '\\odD';
       default:
         throw new Error('Line type has no associated LaTeX prefix');
     }
@@ -738,9 +763,10 @@ var myCanvas = {
 	// resize the canvas to fit the screen width
 	resize : function(){
 		// fit to screen width, min 500
-		let newWidth = Math.max(window.innerWidth, 500);
-		// fit to half screen height, min 300
-		let newHeight = Math.max(window.innerHeight/2, 300);
+		let newWidth = Math.max(window.innerWidth - 2, 500);
+		// fit to remaining screen height, min 300
+		let idealHeight = window.innerHeight - document.getElementById('project_title').offsetHeight - 110;
+		let newHeight = Math.max(idealHeight, 300);
 		this.canvas.width = newWidth;
 		this.canvas.height = newHeight;
 		repaintAll();
